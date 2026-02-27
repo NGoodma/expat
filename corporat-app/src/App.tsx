@@ -67,8 +67,6 @@ const App: React.FC = () => {
         if (tg) {
             tg.expand();
             tg.ready();
-            if (tg.themeParams?.bg_color) document.documentElement.style.setProperty('--bg-dark', tg.themeParams.bg_color);
-            if (tg.themeParams?.text_color) document.documentElement.style.setProperty('--text-main', tg.themeParams.text_color);
         }
     }, [tg]);
 
