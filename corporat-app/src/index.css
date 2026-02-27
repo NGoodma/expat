@@ -270,9 +270,8 @@ header {
     font-weight: 900;
     line-height: 1.1;
     text-transform: uppercase;
-    word-break: break-word;
-    overflow-wrap: break-word;
-    hyphens: auto;
+    overflow-wrap: normal;
+    hyphens: none;
 }
 
 .cell-price {
