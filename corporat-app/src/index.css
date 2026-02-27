@@ -530,3 +530,40 @@ header {
         font-size: 24px;
     }
 }
+
+/* --- Desktop Scaling (>= 600px) --- */
+@media (min-width: 600px) {
+    .cell-name {
+        font-size: 11px !important;
+        /* Base bump */
+    }
+
+    .cell-price {
+        font-size: 11px;
+    }
+
+    .die {
+        width: 80px;
+        height: 80px;
+        font-size: 50px;
+    }
+
+    .player-token {
+        font-size: 20px;
+        padding: 4px;
+        margin: -4px;
+    }
+
+    .action-btn {
+        font-size: 18px;
+        padding: 16px 32px;
+    }
+
+    .logo-title {
+        font-size: 56px;
+    }
+
+    .mortgaged-overlay span {
+        font-size: 9px;
+    }
+}

@@ -523,7 +523,7 @@ const App: React.FC = () => {
 
                                 <div className="cell-content">
                                     <span className="cell-name" style={{ fontSize: cellNameFontSize(cell.name), whiteSpace: 'pre-wrap' }}>{formatBoardName(cell.name)}</span>
-                                    {cell.price && (
+                                    {cell.price && cell.type !== 'tax' && cell.type !== 'chance' && (
                                         <span className="cell-price">{owner ? (calculateRent(cell) / 1000) : (cell.price / 1000)}k</span>
                                     )}
                                 </div>
