@@ -242,13 +242,17 @@ header {
     text-align: center;
     overflow: hidden;
     position: relative;
+    min-width: 0;
+    min-height: 0;
 }
 
 .cell-color-band {
-    height: 25%;
     width: 100%;
     border-bottom: 2px solid var(--border-color);
     position: relative;
+    flex-shrink: 0;
+    height: 22%;
+    min-height: 6px;
 }
 
 .cell-content {
@@ -261,10 +265,19 @@ header {
 }
 
 .cell-name {
-    font-size: 7px;
+    font-size: 6.5px;
     font-weight: 900;
     line-height: 1.1;
     text-transform: uppercase;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+    max-height: 2.6em;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
 }
 
 .cell-price {
@@ -324,17 +337,44 @@ header {
 }
 
 .action-logs p {
-    font-size: 15px;
+    font-size: 13px;
     font-weight: 700;
     color: var(--text-main);
     text-align: center;
     animation: slideUp 0.2s ease-out;
     background: #fff;
-    padding: 4px 12px;
+    padding: 4px 10px;
     border: 2px solid var(--border-color);
     border-radius: 12px;
     box-shadow: var(--comic-shadow-sm);
     display: inline-block;
+    max-width: 100%;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
+}
+
+/* Mortgaged cell overlay */
+.mortgaged-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.38);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 5;
+    pointer-events: none;
+}
+
+.mortgaged-overlay span {
+    color: #fff;
+    font-size: 6px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transform: rotate(-30deg);
+    text-shadow: 0 0 3px #000;
+    opacity: 0.85;
 }
 
 @keyframes slideUp {

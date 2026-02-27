@@ -506,6 +506,9 @@ const App: React.FC = () => {
                                     )}
                                 </div>
                                 {owner && <div className="owner-indicator" style={{ background: owner.color }}></div>}
+                                {cell.isMortgaged && (
+                                    <div className="mortgaged-overlay"><span>Заложено</span></div>
+                                )}
 
                                 <div style={{ position: 'absolute', bottom: '10%', display: 'flex', gap: '2px' }}>
                                     {visualPlayers.map(p => p.position === cell.id && (
@@ -740,7 +743,8 @@ const App: React.FC = () => {
                                                         className="action-btn"
                                                         style={{ padding: '8px', fontSize: '12px', background: 'var(--success)', flex: 1 }}
                                                         onClick={() => {
-                                                            if (players[0].balance >= upgradeCost) {
+                                                            const myPlayer = players.find(p => p.id === myId);
+                                                            if ((myPlayer?.balance ?? 0) >= upgradeCost) {
                                                                 socket.emit('resolve_event', { code: roomId, action: 'manual_upgrade', cellId: c.id });
                                                             } else {
                                                                 alert('Недостаточно средств!');
