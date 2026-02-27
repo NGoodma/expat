@@ -245,6 +245,19 @@ const App: React.FC = () => {
         return '4px';
     };
 
+    // Format long names specifically for the small board cells
+    const formatBoardName = (name: string) => {
+        switch (name) {
+            case 'surikatamami': return 'surikata\nmami';
+            case 'loly_tattoo': return 'loly\ntattoo';
+            case 'Аудитория': return 'Ауди\nтория';
+            case 'Magticom': return 'Magti\ncom';
+            case 'Biblioteka': return 'Biblio\nteka';
+            case 'Горизонтальное кафе Фрик': return 'Горизонт.\nкафе Фрик';
+            default: return name;
+        }
+    };
+
     const getGridPos = (index: number) => {
         if (index >= 0 && index <= 10) return { row: 1, col: 1 + index };            // top row: 0=TL → 10=TR
         if (index >= 11 && index <= 20) return { row: 1 + (index - 10), col: 11 };  // right col: top → bottom
@@ -347,7 +360,7 @@ const App: React.FC = () => {
                     <h3 style={{ margin: 0, opacity: 0.8 }}>Игроки</h3>
                     <div style={{ display: 'flex', gap: '4px', visibility: (isUserTurn && !activeEvent && !showAssetsModal) ? 'visible' : 'hidden' }}>
                         <button onClick={() => setShowAssetsModal(true)} className="action-btn" style={{ padding: '4px 10px', fontSize: '12px' }}>Мои Активы</button>
-                        <button onClick={() => setActiveEvent({ type: 'trade' })} className="action-btn" style={{ background: '#fff', padding: '4px 10px', fontSize: '12px' }}>Глоб. Сделка</button>
+                        <button onClick={() => setActiveEvent({ type: 'trade' })} className="action-btn" style={{ background: '#fff', padding: '4px 10px', fontSize: '12px' }}>Сделка</button>
                     </div>
                 </div>
                 {players.map((p, idx) => (
@@ -509,7 +522,7 @@ const App: React.FC = () => {
                                 )}
 
                                 <div className="cell-content">
-                                    <span className="cell-name" style={{ fontSize: cellNameFontSize(cell.name) }}>{cell.name}</span>
+                                    <span className="cell-name" style={{ fontSize: cellNameFontSize(cell.name), whiteSpace: 'pre-wrap' }}>{formatBoardName(cell.name)}</span>
                                     {cell.price && (
                                         <span className="cell-price">{owner ? (calculateRent(cell) / 1000) : (cell.price / 1000)}k ₾</span>
                                     )}

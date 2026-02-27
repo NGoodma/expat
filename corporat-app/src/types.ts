@@ -116,7 +116,7 @@ export const BOARD_CONFIG: BoardEntry[] = [
     { name: 'Арест', type: 'jail', color: '', price: null },
     // 11-14 Pink (#FF69B4) price 140-160k, build 100k
     {
-        name: 'surikata mami', type: 'property', color: '#FF69B4', price: 140000,
+        name: 'surikatamami', type: 'property', color: '#FF69B4', price: 140000,
         buildCost: 100000, rentBase: 10000, rentMonopoly: 20000,
         rent1h: 50000, rent2h: 150000, rent3h: 450000, rent4h: 625000, rentHotel: 750000
     },
@@ -126,7 +126,7 @@ export const BOARD_CONFIG: BoardEntry[] = [
         rent1h: null, rent2h: null, rent3h: null, rent4h: null, rentHotel: null
     },
     {
-        name: 'loly tattoo', type: 'property', color: '#FF69B4', price: 140000,
+        name: 'loly_tattoo', type: 'property', color: '#FF69B4', price: 140000,
         buildCost: 100000, rentBase: 10000, rentMonopoly: 20000,
         rent1h: 50000, rent2h: 150000, rent3h: 450000, rent4h: 625000, rentHotel: 750000
     },
@@ -168,7 +168,7 @@ export const BOARD_CONFIG: BoardEntry[] = [
     },
     { name: 'Шанс', type: 'chance', color: '', price: null },
     {
-        name: 'Ауди тория', type: 'property', color: '#FF0000', price: 220000,
+        name: 'Аудитория', type: 'property', color: '#FF0000', price: 220000,
         buildCost: 150000, rentBase: 18000, rentMonopoly: 36000,
         rent1h: 90000, rent2h: 250000, rent3h: 700000, rent4h: 875000, rentHotel: 1050000
     },
@@ -195,7 +195,7 @@ export const BOARD_CONFIG: BoardEntry[] = [
         rent1h: 110000, rent2h: 330000, rent3h: 800000, rent4h: 975000, rentHotel: 1150000
     },
     {
-        name: 'Magti com', type: 'utility', color: '#c2c2c2', price: 150000,
+        name: 'Magticom', type: 'utility', color: '#c2c2c2', price: 150000,
         buildCost: null, rentBase: 0, rentMonopoly: null,
         rent1h: null, rent2h: null, rent3h: null, rent4h: null, rentHotel: null
     },
@@ -213,7 +213,7 @@ export const BOARD_CONFIG: BoardEntry[] = [
         rent1h: 130000, rent2h: 390000, rent3h: 900000, rent4h: 1100000, rentHotel: 1275000
     },
     {
-        name: 'Biblio teka', type: 'property', color: '#008000', price: 300000,
+        name: 'Biblioteka', type: 'property', color: '#008000', price: 300000,
         buildCost: 200000, rentBase: 26000, rentMonopoly: 52000,
         rent1h: 130000, rent2h: 390000, rent3h: 900000, rent4h: 1100000, rentHotel: 1275000
     },
@@ -239,7 +239,7 @@ export const BOARD_CONFIG: BoardEntry[] = [
     },
     { name: 'Налог', type: 'tax', color: '', price: 100000 },
     {
-        name: 'Горизонт. кафе Фрик', type: 'property', color: '#0000CD', price: 400000,
+        name: 'Горизонтальное кафе Фрик', type: 'property', color: '#0000CD', price: 400000,
         buildCost: 200000, rentBase: 50000, rentMonopoly: 100000,
         rent1h: 200000, rent2h: 600000, rent3h: 1400000, rent4h: 1700000, rentHotel: 2000000
     },
