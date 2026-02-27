@@ -42,7 +42,10 @@ const DEFAULT = PALETTE[0];
 
 const Lobby: React.FC<LobbyProps> = ({ onGameStart }) => {
     const [view, setView] = useState<'home' | 'create' | 'join' | 'waiting' | 'rejoining'>('home');
-    const [name, setName] = useState('');
+    const [name, setName] = useState(() => {
+        const tgName = window.Telegram?.WebApp?.initDataUnsafe?.user?.first_name;
+        return tgName || '';
+    });
     const [selectedPalette, setSelectedPalette] = useState(DEFAULT);
     const [roomCode, setRoomCode] = useState('');
     const [room, setRoom] = useState<GameRoom | null>(null);

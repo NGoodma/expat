@@ -69,13 +69,6 @@ const App: React.FC = () => {
             tg.ready();
             if (tg.themeParams?.bg_color) document.documentElement.style.setProperty('--bg-dark', tg.themeParams.bg_color);
             if (tg.themeParams?.text_color) document.documentElement.style.setProperty('--text-main', tg.themeParams.text_color);
-            if (tg.initDataUnsafe?.user?.first_name) {
-                setPlayers(prev => {
-                    const newArr = [...prev];
-                    newArr[0].name = tg.initDataUnsafe.user.first_name || 'Игрок';
-                    return newArr;
-                });
-            }
         }
     }, [tg]);
 
