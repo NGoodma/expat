@@ -37,8 +37,8 @@ export function endTurn(room: GameRoom) {
 
     room.activeEvent = null;
 
-    // ---- Check for winner (only 1 active player) ----
-    const activePlayers = room.players.filter(p => p.isReady);
+    // ---- Check for winner (only non-bankrupt players) ----
+    const activePlayers = room.players.filter(p => p.balance >= 0);
     if (activePlayers.length === 1) {
         logAction(room, `🏆 ${activePlayers[0].name} побеждает! Игра окончена!`);
         room.state = 'finished';
@@ -286,23 +286,22 @@ export function resolveEvent(room: GameRoom, playerId: string, payload: any) {
     const p = room.players[pIndex];
     const isTheirTurn = room.turnIndex === pIndex;
 
-    // ---- Free actions (only during own turn, before or after rolling, without blocking event) ----
-    if (isTheirTurn && !room.activeEvent) {
-        if (action === 'pay_bail') {
+    // ---- Free actions (can be done to raise funds even if event is active) ----
+    if (isTheirTurn) {
+        let isFreeAction = true;
+
+        if (action === 'pay_bail' && !room.activeEvent) {
             if (p.isInJail && p.balance >= 50000) {
                 p.balance -= 50000;
                 p.isInJail = false;
                 p.jailRolls = 0;
                 logAction(room, `${p.name} заплатил залог 50k ₾ и вышел на свободу! Теперь бросьте кубики.`);
             }
-            return; // important: prevent falling through to popup-actions section
-        } else if (action === 'end_turn') {
+        } else if (action === 'end_turn' && !room.activeEvent) {
             if (p.balance >= 0) endTurn(room);
-            return;
         } else if (action === 'declare_bankruptcy') {
             if (p.balance < 0) endTurn(room);
-            return;
-        } else if (action === 'manual_upgrade' && cellId !== undefined) {
+        } else if (action === 'manual_upgrade' && cellId !== undefined && !room.activeEvent) {
             const c = room.cells.find(c => c.id === cellId);
             if (c && c.ownerId === p.id && c.type === 'property' && c.level < 5) {
                 const upgradeCost = c.buildCost ?? c.price! * 0.5;
@@ -312,7 +311,6 @@ export function resolveEvent(room: GameRoom, playerId: string, payload: any) {
                     logAction(room, `${p.name} улучшает ${c.name} (ур. ${c.level})`);
                 }
             }
-            return;
         } else if (action === 'sell_upgrade' && cellId !== undefined) {
             const c = room.cells.find(c => c.id === cellId);
             if (c && c.ownerId === p.id && c.level > 0) {
@@ -321,7 +319,6 @@ export function resolveEvent(room: GameRoom, playerId: string, payload: any) {
                 c.level -= 1;
                 logAction(room, `${p.name} продает филиал ${c.name} (+${gain / 1000}k ₾)`);
             }
-            return;
         } else if (action === 'mortgage' && cellId !== undefined) {
             const c = room.cells.find(c => c.id === cellId);
             if (c && c.ownerId === p.id && c.level === 0 && !c.isMortgaged) {
@@ -330,8 +327,7 @@ export function resolveEvent(room: GameRoom, playerId: string, payload: any) {
                 c.isMortgaged = true;
                 logAction(room, `${p.name} закладывает ${c.name} (+${val / 1000}k ₾)`);
             }
-            return;
-        } else if (action === 'unmortgage' && cellId !== undefined) {
+        } else if (action === 'unmortgage' && cellId !== undefined && !room.activeEvent) {
             const c = room.cells.find(c => c.id === cellId);
             if (c && c.ownerId === p.id && c.isMortgaged) {
                 const val = Math.round(c.price! * 0.5 * 1.1);
@@ -341,47 +337,51 @@ export function resolveEvent(room: GameRoom, playerId: string, payload: any) {
                     logAction(room, `${p.name} выкупает ${c.name} (-${val / 1000}k ₾)`);
                 }
             }
-            return;
-        } else if (action === 'propose_trade') {
+        } else if (action === 'propose_trade' && !room.activeEvent) {
             const targetId = payload.tradeTargetPlayerId;
             const offerCellId = payload.tradeOfferPropertyId;
             const requestCellId = payload.tradeRequestPropertyId;
             const offerAmount = payload.tradeOfferAmount || 0;
 
-            if (p.balance < offerAmount) return;
+            if (p.balance >= offerAmount) {
+                const targetPlayer = room.players.find(pl => pl.id === targetId);
+                let valid = !!targetPlayer;
 
-            const targetPlayer = room.players.find(pl => pl.id === targetId);
-            if (!targetPlayer) return;
+                if (valid && offerCellId) {
+                    const offerCell = room.cells.find(c => c.id === offerCellId);
+                    if (!offerCell || offerCell.ownerId !== p.id || offerCell.level > 0) valid = false;
+                }
 
-            if (offerCellId) {
-                const offerCell = room.cells.find(c => c.id === offerCellId);
-                if (!offerCell || offerCell.ownerId !== p.id || offerCell.level > 0) return;
+                if (valid && requestCellId) {
+                    const requestCell = room.cells.find(c => c.id === requestCellId);
+                    if (!requestCell || requestCell.ownerId !== targetId || requestCell.level > 0) valid = false;
+                }
+
+                if (valid) {
+                    const offerName = offerCellId ? room.cells.find(c => c.id === offerCellId)?.name : '';
+                    const requestName = requestCellId ? room.cells.find(c => c.id === requestCellId)?.name : '';
+
+                    let msg = `${p.name} предлагает сделку: `;
+                    if (offerName || offerAmount > 0) msg += `Отдает ${offerName} ${offerAmount > 0 ? '+ ' + offerAmount + ' ₾' : ''}`;
+                    if (requestName) msg += ` в обмен на ${requestName}`;
+
+                    logAction(room, msg);
+                    room.activeEvent = {
+                        type: 'trade_proposal',
+                        targetPlayerId: targetId,
+                        initiatorId: p.id,
+                        tradeOfferPropertyId: offerCellId,
+                        tradeRequestPropertyId: requestCellId,
+                        tradeOfferAmount: offerAmount,
+                        message: msg
+                    };
+                }
             }
-
-            if (requestCellId) {
-                const requestCell = room.cells.find(c => c.id === requestCellId);
-                if (!requestCell || requestCell.ownerId !== targetId || requestCell.level > 0) return;
-            }
-
-            const offerName = offerCellId ? room.cells.find(c => c.id === offerCellId)?.name : '';
-            const requestName = requestCellId ? room.cells.find(c => c.id === requestCellId)?.name : '';
-
-            let msg = `${p.name} предлагает сделку: `;
-            if (offerName || offerAmount > 0) msg += `Отдает ${offerName} ${offerAmount > 0 ? '+ ' + offerAmount + ' ₾' : ''}`;
-            if (requestName) msg += ` в обмен на ${requestName}`;
-
-            logAction(room, msg);
-            room.activeEvent = {
-                type: 'trade_proposal',
-                targetPlayerId: targetId,
-                initiatorId: p.id,
-                tradeOfferPropertyId: offerCellId,
-                tradeRequestPropertyId: requestCellId,
-                tradeOfferAmount: offerAmount,
-                message: msg
-            };
-            return;
+        } else {
+            isFreeAction = false;
         }
+
+        if (isFreeAction) return; // Return after free-actions to prevent popup-section bleed
     }
 
     // ---- Popup / modal resolution ----

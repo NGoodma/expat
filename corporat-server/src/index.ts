@@ -3,7 +3,7 @@ import { createServer } from 'http';
 import { Server, Socket } from 'socket.io';
 import cors from 'cors';
 import { GameRoom, Player, getInitialCells } from './models';
-import { rollDice, resolveEvent, botTick, logAction } from './gameEngine';
+import { rollDice, resolveEvent, botTick, logAction, endTurn } from './gameEngine';
 
 const app = express();
 app.use(cors());
@@ -233,6 +233,10 @@ io.on('connection', (socket: Socket) => {
         if (room && room.state === 'playing') {
             try {
                 rollDice(room, socket.id);
+                if ((room.state as string) === 'finished' && !(room as any)._deletionScheduled) {
+                    (room as any)._deletionScheduled = true;
+                    setTimeout(() => rooms.delete(data.code), 5 * 60 * 1000);
+                }
                 console.log(`[Socket] Broadcasting room_update for ${data.code}`);
                 io.to(data.code).emit('room_update', room);
             } catch (err) {
@@ -246,6 +250,10 @@ io.on('connection', (socket: Socket) => {
         if (room && room.state === 'playing') {
             try {
                 resolveEvent(room, socket.id, data);
+                if ((room.state as string) === 'finished' && !(room as any)._deletionScheduled) {
+                    (room as any)._deletionScheduled = true;
+                    setTimeout(() => rooms.delete(data.code), 5 * 60 * 1000);
+                }
                 console.log(`[Socket] Broadcasting room_update for ${data.code} after resolve`);
                 io.to(data.code).emit('room_update', room);
             } catch (err) {
@@ -269,7 +277,14 @@ io.on('connection', (socket: Socket) => {
                     }
                 } else {
                     // Game is running — keep player alive, give 90s to rejoin
+                    disconnectedPlayer.isReady = false;
+                    disconnectedPlayer.doubleCount = 0; // prevent stuck on extra turn
                     logAction(room, `${disconnectedPlayer.name} потерял связь. 90 сек на переподключение.`);
+
+                    if (room.turnIndex === pIndex) {
+                        endTurn(room);
+                    }
+
                     io.to(code).emit('room_update', room);
 
                     setTimeout(() => {

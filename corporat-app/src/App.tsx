@@ -117,7 +117,7 @@ const App: React.FC = () => {
                     }
 
                     // Detect teleport: if destination is impossibly far or backwards — snap immediately
-                    const forwardDist = (targetPos - vp.position + 40) % 40;
+                    const forwardDist = (targetPos - vp.position + BOARD_SIZE) % BOARD_SIZE;
                     if (forwardDist > 12) {
                         // Can't be a normal dice move — teleport snap
                         changed = true;
