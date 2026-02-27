@@ -524,7 +524,7 @@ const App: React.FC = () => {
                                 <div className="cell-content">
                                     <span className="cell-name" style={{ fontSize: cellNameFontSize(cell.name), whiteSpace: 'pre-wrap' }}>{formatBoardName(cell.name)}</span>
                                     {cell.price && (
-                                        <span className="cell-price">{owner ? (calculateRent(cell) / 1000) : (cell.price / 1000)}k ₾</span>
+                                        <span className="cell-price">{owner ? (calculateRent(cell) / 1000) : (cell.price / 1000)}k</span>
                                     )}
                                 </div>
                                 {owner && <div className="owner-indicator" style={{ background: owner.color }}></div>}
