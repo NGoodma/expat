@@ -328,11 +328,29 @@ const App: React.FC = () => {
             }
         };
 
+        const handleReconnect = () => {
+            console.log('[App] Socket reconnected silently! Re-joining room...');
+            if (roomId) {
+                const playerId = localStorage.getItem('corporat_playerId');
+                if (playerId) {
+                    socket.emit('rejoin_room', { code: roomId, playerId }, (res: any) => {
+                        if (res.success && socket.id) {
+                            console.log('[App] Rejoin successful. Updating myId to new socket.id:', socket.id);
+                            setMyIdSynced(socket.id);
+                        }
+                    });
+                }
+            }
+        };
+
         socket.on('room_update', handleRoomUpdate);
+        socket.on('connect', handleReconnect);
+
         return () => {
             socket.off('room_update', handleRoomUpdate);
+            socket.off('connect', handleReconnect);
         };
-    }, []);
+    }, [roomId]);
 
     if (roomState === 'lobby') {
         return <Lobby onGameStart={(room, id) => {
