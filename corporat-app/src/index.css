@@ -47,7 +47,8 @@ body {
 
 .app-container {
     width: 100%;
-    max-width: 600px;
+    max-width: 1000px;
+    /* Expanded for desktop */
     height: 100%;
     display: flex;
     flex-direction: column;
@@ -128,7 +129,7 @@ header {
 
 .board {
     height: 100%;
-    max-width: 100%;
+    width: 100%;
     aspect-ratio: 1/1;
     /* Square board */
     display: grid;
@@ -139,6 +140,10 @@ header {
     padding: 6px;
     background: var(--border-color);
     /* Board borders act as grid lines */
+    max-height: 100%;
+    max-width: 100%;
+    margin: 0 auto;
+    /* Center horizontal */
 }
 
 .board-center {
@@ -261,10 +266,13 @@ header {
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    /* Center everything first */
     padding: 2px;
 }
 
 .cell-name {
+    margin-top: auto;
+    margin-bottom: auto;
     font-size: 7px;
     /* overridden inline by cellNameFontSize() */
     font-weight: 900;
@@ -272,12 +280,16 @@ header {
     text-transform: uppercase;
     overflow-wrap: normal;
     hyphens: none;
+    display: flex;
+    align-items: center;
+    /* keep multi-line text vertically centered */
 }
 
 .cell-price {
     font-size: 8px;
     font-weight: 900;
     margin-top: auto;
+    /* pushes price down, forcing name to center in the remaining space */
     color: var(--text-main);
 }
 
