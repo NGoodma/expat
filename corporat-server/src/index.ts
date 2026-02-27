@@ -125,8 +125,25 @@ io.on('connection', (socket: Socket) => {
 
         const existingPlayer = room.players.find(p => p.playerId === data.playerId);
         if (existingPlayer) {
+            const oldId = existingPlayer.id;
             // Update socket ID for the rejoining player
             existingPlayer.id = socket.id;
+
+            // Migrate all state references to the new socket ID
+            room.cells.forEach(c => {
+                if (c.ownerId === oldId) c.ownerId = socket.id;
+            });
+            if (room.lastRoll?.playerId === oldId) room.lastRoll.playerId = socket.id;
+            if (room.activeEvent?.targetPlayerId === oldId) room.activeEvent.targetPlayerId = socket.id;
+            if (room.auctionState) {
+                if (room.auctionState.highestBidderId === oldId) room.auctionState.highestBidderId = socket.id;
+                const pIdx = room.auctionState.participantIds.indexOf(oldId);
+                if (pIdx !== -1) room.auctionState.participantIds[pIdx] = socket.id;
+            }
+            room.players.forEach(p => {
+                if (p.debtTo === oldId) p.debtTo = socket.id;
+            });
+
             existingPlayer.isReady = true; // Mark as ready again
             socket.join(data.code);
             callback({ success: true, roomCode: data.code });

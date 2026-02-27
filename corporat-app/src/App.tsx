@@ -81,6 +81,12 @@ const App: React.FC = () => {
                     return players;
                 }
 
+                // If any player ID changed (e.g. from a reconnect), instantly snap the visuals
+                const idsMatch = players.every(p => prev.some(vp => vp.id === p.id));
+                if (!idsMatch) {
+                    return players;
+                }
+
                 // Do not move anyone while the dice are visually rolling
                 if (isRolling) return prev;
 
