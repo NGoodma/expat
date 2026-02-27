@@ -235,6 +235,16 @@ const App: React.FC = () => {
         return '';
     };
 
+    // Dynamic font size: full name always shown, just smaller for longer names
+    const cellNameFontSize = (name: string): string => {
+        const len = name.length;
+        if (len <= 5) return '7.5px';
+        if (len <= 9) return '6.5px';
+        if (len <= 14) return '5.5px';
+        if (len <= 20) return '4.8px';
+        return '4px';
+    };
+
     const getGridPos = (index: number) => {
         if (index >= 0 && index <= 10) return { row: 1, col: 1 + index };            // top row: 0=TL → 10=TR
         if (index >= 11 && index <= 20) return { row: 1 + (index - 10), col: 11 };  // right col: top → bottom
@@ -464,10 +474,9 @@ const App: React.FC = () => {
                                     borderRadius: '4px',
                                     background: i === 0 ? 'rgba(0,0,0,0.07)' : 'transparent',
                                     color: 'var(--text-main)',
-                                    lineHeight: '1.35',
-                                    whiteSpace: 'nowrap',
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
+                                    lineHeight: '1.4',
+                                    whiteSpace: 'normal',
+                                    wordBreak: 'break-word',
                                 }}>
                                     {entry}
                                 </div>
@@ -500,7 +509,7 @@ const App: React.FC = () => {
                                 )}
 
                                 <div className="cell-content">
-                                    <span className="cell-name">{cell.name}</span>
+                                    <span className="cell-name" style={{ fontSize: cellNameFontSize(cell.name) }}>{cell.name}</span>
                                     {cell.price && (
                                         <span className="cell-price">{owner ? (calculateRent(cell) / 1000) : (cell.price / 1000)}k ₾</span>
                                     )}

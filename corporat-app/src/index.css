@@ -265,19 +265,14 @@ header {
 }
 
 .cell-name {
-    font-size: 6.5px;
+    font-size: 7px;
+    /* overridden inline by cellNameFontSize() */
     font-weight: 900;
     line-height: 1.1;
     text-transform: uppercase;
     word-break: break-word;
     overflow-wrap: break-word;
     hyphens: auto;
-    max-height: 2.6em;
-    overflow: hidden;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-    -webkit-box-orient: vertical;
 }
 
 .cell-price {
