@@ -162,6 +162,7 @@ export function evaluateCellLanding(room: GameRoom, pIndex: number, cellId: numb
             sendToJail(room, pIndex);        // resets doubleCount + isInJail = true
         } else if (cell.type === 'parking') {
             p.skipNextTurn = true;
+            p.doubleCount = 0; // Prevent extra turn if landed here via double roll
             logAction(room, `${p.name} попадает на Визаран и будет пропускать следующий ход!`);
         } else if (cell.type === 'jail') {
             logAction(room, `${p.name} проходит мимо Ареста.`);
