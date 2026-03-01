@@ -204,7 +204,7 @@ const App: React.FC = () => {
         }
         if (cell.type === 'utility') {
             const bothOwned = cells.filter(c => c.type === 'utility').every(c => c.ownerId === cell.ownerId);
-            return bothOwned ? 10000 * 7 : 4000 * 7; // estimate with avg dice 7
+            return bothOwned ? 'x10' : 'x4';
         }
         if (!cell.rentBase) return 0;
         if (cell.level === 0) {
@@ -550,7 +550,11 @@ const App: React.FC = () => {
                                 <div className="cell-content">
                                     <span className="cell-name" style={{ fontSize: cellNameFontSize(cell.name), whiteSpace: 'pre-wrap' }}>{formatBoardName(cell.name)}</span>
                                     {cell.price && cell.type !== 'tax' && cell.type !== 'chance' && (
-                                        <span className="cell-price">{owner ? (calculateRent(cell) / 1000) : (cell.price / 1000)}k</span>
+                                        <span className="cell-price">
+                                            {owner
+                                                ? (typeof calculateRent(cell) === 'string' ? calculateRent(cell) : `${(calculateRent(cell) as number) / 1000}k`)
+                                                : `${cell.price / 1000}k`}
+                                        </span>
                                     )}
                                 </div>
 
