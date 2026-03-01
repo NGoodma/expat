@@ -197,16 +197,23 @@ const Lobby: React.FC<LobbyProps> = ({ onGameStart }) => {
                     <p style={{ margin: '0 0 16px', color: 'var(--text-muted)' }}>Ожидание игроков… ({room.players.length}/6)</p>
 
                     {/* Player list */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
+                    <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: room.players.length > 3 ? '1fr 1fr' : '1fr',
+                        gap: '8px',
+                        marginBottom: '20px',
+                    }}>
                         {room.players.map(p => (
-                            <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: 'rgba(0,0,0,0.1)', borderRadius: '8px', border: '3px solid #000' }}>
-                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                    <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: p.color, border: '2px solid #000', flexShrink: 0 }} />
-                                    <span style={{ fontSize: '20px' }}>{p.icon}</span>
-                                    <strong>{p.name}{p.playerId === room.players[0].playerId ? ' (Хост)' : ''}</strong>
+                            <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: 'rgba(0,0,0,0.1)', borderRadius: '8px', border: '3px solid #000' }}>
+                                <div style={{ display: 'flex', gap: '6px', alignItems: 'center', minWidth: 0 }}>
+                                    <div style={{ width: '14px', height: '14px', borderRadius: '50%', background: p.color, border: '2px solid #000', flexShrink: 0 }} />
+                                    <span style={{ fontSize: '16px', flexShrink: 0 }}>{p.icon}</span>
+                                    <strong style={{ fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {p.name}{p.playerId === room.players[0].playerId ? ' 👑' : ''}
+                                    </strong>
                                 </div>
-                                <span style={{ color: p.isReady ? 'var(--success)' : 'var(--danger)', fontWeight: 'bold' }}>
-                                    {p.isReady ? 'ГОТОВ' : 'НЕ ГОТОВ'}
+                                <span style={{ color: p.isReady ? 'var(--success)' : 'var(--danger)', fontWeight: 'bold', fontSize: '11px', flexShrink: 0, marginLeft: '4px' }}>
+                                    {p.isReady ? '✓' : '✗'}
                                 </span>
                             </div>
                         ))}
