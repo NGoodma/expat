@@ -269,11 +269,15 @@ export function rollDice(room: GameRoom, playerId: string) {
             movePlayer(room, pIndex, total);
         } else if (p.jailRolls >= 2) {
             // 3rd failed attempt (jailRolls: 0→1→2) — forced bail
-            logAction(room, `Третья неудачная попытка! ${p.name} принудительно платит залог 50k ₾ и выходит.`);
+            logAction(room, `Третья неудачная попытка! ${p.name} принудительно платит штраф 50k ₾, ход окончен.`);
             p.balance -= 50000;
             p.isInJail = false;
             p.jailRolls = 0;
-            movePlayer(room, pIndex, total);
+            if (p.balance >= 0) {
+                endTurn(room);
+            } else {
+                logAction(room, `ВНИМАНИЕ: ${p.name} в ДОЛГАХ! Продайте активы, чтобы выжить.`);
+            }
         } else {
             p.jailRolls += 1;
             logAction(room, `Нет дубля. ${p.name} остаётся под Арестом (попытка ${p.jailRolls}/3).`);
