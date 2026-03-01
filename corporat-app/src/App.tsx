@@ -216,16 +216,6 @@ const App: React.FC = () => {
         return rentByLevel[Math.min(cell.level, 5)] ?? cell.rentBase;
     };
 
-    const checkTotalAssetsValue = (pIndex: number) => {
-        const pId = players[pIndex].id;
-        return cells.filter(c => c.ownerId === pId).reduce((acc, c) => {
-            let val = 0;
-            if (!c.isMortgaged) val += (c.price || 0) * 0.5;
-            if (c.level > 0) val += (c.level * ((c.buildCost ?? (c.price || 0) * 0.5) * 0.5));
-            return acc + val;
-        }, 0);
-    };
-
     const getCellColor = (type: string) => {
         if (type === 'go') return 'cell-go';
         if (type === 'gotojail' || type === 'jail') return 'cell-jail';
@@ -465,20 +455,6 @@ const App: React.FC = () => {
                             return (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '8px', zIndex: 10 }}>
                                     <p style={{ color: 'var(--danger)', fontWeight: 'bold', margin: '0', textAlign: 'center' }}>У вас долг! Продайте имущество.</p>
-                                    <button
-                                        className="action-btn"
-                                        onClick={() => {
-                                            const myIndex = players.findIndex(p => p.id === myId);
-                                            if (players[myIndex].balance + checkTotalAssetsValue(myIndex) < 0) {
-                                                socket.emit('resolve_event', { code: roomId, action: 'declare_bankruptcy' });
-                                            } else {
-                                                alert("У вас достаточно активов для погашения! Продайте их через 'Мои Активы', либо нажмите 'Сдаться'.");
-                                            }
-                                        }}
-                                        style={{ background: 'var(--danger)', color: '#fff' }}
-                                    >
-                                        Объявить Банкротство
-                                    </button>
                                     <button
                                         className="action-btn"
                                         onClick={() => {
