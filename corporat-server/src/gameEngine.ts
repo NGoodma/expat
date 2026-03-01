@@ -13,32 +13,28 @@ export function endTurn(room: GameRoom) {
     // ---- Bankruptcy check ----
     if (currentPlayer.balance < 0) {
         logAction(room, `Банкротство! ${currentPlayer.name} выбывает из игры.`);
-        const creditor = room.players.find(p => p.id === currentPlayer.debtTo);
 
-        if (creditor) {
-            creditor.balance += Math.max(0, currentPlayer.balance);
-            logAction(room, `Его активы уходят к ${creditor.name}.`);
-        }
-
+        // All assets are freed back to the market (improvements stripped, mortgages cleared)
         room.cells.forEach(c => {
             if (c.ownerId === currentPlayer.id) {
-                if (creditor) {
-                    c.ownerId = creditor.id;
-                } else {
-                    c.ownerId = null;
-                    c.level = 0;
-                    c.isMortgaged = false;
-                }
+                c.ownerId = null;
+                c.level = 0;
+                c.isMortgaged = false;
             }
         });
+
         currentPlayer.balance = 0;
         currentPlayer.isReady = false;
+        // position = -1 is the "off-board" sentinel: token won't render on any cell
+        currentPlayer.position = -1;
     }
 
     room.activeEvent = null;
 
     // ---- Check for winner (only non-bankrupt players) ----
-    const activePlayers = room.players.filter(p => p.balance >= 0);
+    // position >= 0 is the reliable "still in the game" marker;
+    // bankrupt players are set to position = -1 above.
+    const activePlayers = room.players.filter(p => p.position >= 0);
     if (activePlayers.length === 1) {
         logAction(room, `🏆 ${activePlayers[0].name} побеждает! Игра окончена!`);
         room.state = 'finished';

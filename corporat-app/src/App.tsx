@@ -19,6 +19,7 @@ const App: React.FC = () => {
     // Multiplayer State
     const [roomState, setRoomState] = useState<'lobby' | 'playing'>('lobby');
     const [myId, setMyId] = useState<string>('');
+    const [winner, setWinner] = useState<Player | null>(null);
     const [roomId, setRoomId] = useState<string>('');
 
     // Game State
@@ -60,6 +61,9 @@ const App: React.FC = () => {
     // Use a ref for myId so handleRoomUpdate always reads the current value (avoids stale closure)
     const myIdRef = React.useRef('');
     const animatingTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    // Generation counter: each roll increments this so old Stage-2 timers don't
+    // accidentally clear isAnimating while a newer roll is already in flight.
+    const rollGenerationRef = React.useRef(0);
 
     const tg = window.Telegram?.WebApp;
 
@@ -261,6 +265,17 @@ const App: React.FC = () => {
     useEffect(() => {
         const handleRoomUpdate = (room: GameRoom) => {
             console.log('--- ROOM UPDATE RECEIVED ---', room);
+            if (room.state === 'finished') {
+                setPlayers(room.players || []);
+                // The winner is the only player still on the board (position >= 0)
+                const w = room.players.find(p => p.position >= 0) || null;
+                setWinner(w);
+                // Reset animation state so UI doesn't stay locked
+                if (animatingTimeoutRef.current) clearTimeout(animatingTimeoutRef.current);
+                orchestratorRef.current.isAnimating = false;
+                setIsRolling(false);
+                return;
+            }
             if (room.state === 'playing') {
                 setPlayers(room.players || []);
                 setCells(room.cells || []);
@@ -285,21 +300,27 @@ const App: React.FC = () => {
                         // Clear any previous failsafe
                         if (animatingTimeoutRef.current) clearTimeout(animatingTimeoutRef.current);
 
+                        // Bump generation so any Stage‑2 timer from a prior roll knows it's stale.
+                        rollGenerationRef.current += 1;
+                        const gen = rollGenerationRef.current;
+
                         // Stage 1: dice spin
                         setTimeout(() => {
                             setIsRolling(false);
                             setLastRoll(room.lastRoll || null);
 
-                            // Stage 2: pawn walk
+                            // Stage 2: pawn walk — only finalise if no newer roll has started
                             setTimeout(() => {
-                                setActiveEvent(room.activeEvent as any);
-                                orchestratorRef.current.isAnimating = false;
+                                if (rollGenerationRef.current === gen) {
+                                    setActiveEvent(room.activeEvent as any);
+                                    orchestratorRef.current.isAnimating = false;
+                                }
                             }, 1500);
                         }, 1000);
 
                         // Failsafe: force-reset after 5s to prevent permanent lock
                         animatingTimeoutRef.current = setTimeout(() => {
-                            if (orchestratorRef.current.isAnimating) {
+                            if (orchestratorRef.current.isAnimating && rollGenerationRef.current === gen) {
                                 console.warn('[App] isAnimating failsafe triggered — resetting');
                                 setIsRolling(false);
                                 setLastRoll(room.lastRoll || null);
@@ -309,6 +330,8 @@ const App: React.FC = () => {
                         }, 5000);
                     }
                 } else {
+                    // Not our animation — but always ensure dice aren't stuck spinning.
+                    setIsRolling(false);
                     setLastRoll(room.lastRoll || null);
                     setActiveEvent(room.activeEvent as any);
                 }
@@ -354,6 +377,42 @@ const App: React.FC = () => {
             setTurnIndex(room.turnIndex);
             setRoomState('playing');
         }} />;
+    }
+
+    if (winner) {
+        const isMe = winner.id === myId;
+        return (
+            <div className="app-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                <div className="glass-panel" style={{ padding: '40px 32px', textAlign: 'center', maxWidth: '360px', width: '100%' }}>
+                    <div style={{ fontSize: '72px', marginBottom: '8px' }}>🏆</div>
+                    <h1 style={{ fontSize: '28px', margin: '0 0 8px', color: 'var(--primary-glow)', WebkitTextStroke: '1px black' }}>
+                        {isMe ? 'Вы победили!' : `${winner.name} победил!`}
+                    </h1>
+                    <div style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '10px',
+                        background: winner.color, borderRadius: '12px',
+                        padding: '10px 20px', margin: '12px 0', border: '3px solid #000'
+                    }}>
+                        <span style={{ fontSize: '32px' }}>{winner.icon}</span>
+                        <span style={{ fontWeight: 'bold', fontSize: '20px', color: '#fff', textShadow: '1px 1px 0 #000' }}>{winner.name}</span>
+                    </div>
+                    <p style={{ color: 'var(--text-muted)', margin: '12px 0 24px' }}>
+                        Все остальные игроки обанкротились.<br />
+                        {isMe ? 'Экспат-магнат! 🎉' : 'В следующий раз повезёт!'}
+                    </p>
+                    <button
+                        className="action-btn"
+                        style={{ background: 'var(--primary-glow)', width: '100%', fontSize: '16px' }}
+                        onClick={() => {
+                            setWinner(null);
+                            setRoomState('lobby');
+                        }}
+                    >
+                        В главное меню
+                    </button>
+                </div>
+            </div>
+        );
     }
 
     if (!players || players.length === 0) return null;
@@ -409,7 +468,7 @@ const App: React.FC = () => {
                                     <button
                                         className="action-btn primary-glow"
                                         onClick={rollDice}
-                                        disabled={!isUserTurn || isUserInDebt || activeEvent !== null}
+                                        disabled={!isUserTurn || isUserInDebt || activeEvent !== null || isRolling || orchestratorRef.current.isAnimating}
                                         style={{
                                             padding: '8px 10px',
                                             fontSize: window.innerWidth < 400 ? '11px' : '14px',
