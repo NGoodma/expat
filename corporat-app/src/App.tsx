@@ -573,12 +573,22 @@ const App: React.FC = () => {
                                     <div className="mortgaged-overlay"><span>Заложено</span></div>
                                 )}
 
-                                <div style={{ position: 'absolute', bottom: '10%', display: 'flex', gap: '2px' }}>
-                                    {visualPlayers.map(p => p.position === cell.id && (
-                                        <div key={p.id} className="player-token">
-                                            {p.icon}
-                                        </div>
-                                    ))}
+                                <div style={{ position: 'absolute', bottom: '10%', left: 0, width: '100%', display: 'flex', flexDirection: 'column-reverse', alignItems: 'center' }}>
+                                    {visualPlayers.filter(p => p.position === cell.id).map((p, idx, arr) => {
+                                        const isOverlapping = arr.length > 2;
+                                        return (
+                                            <div
+                                                key={p.id}
+                                                className="player-token"
+                                                style={{
+                                                    marginBottom: (isOverlapping && idx > 0) ? '-10px' : (idx > 0 && !isOverlapping ? '2px' : '0'),
+                                                    zIndex: 10 + idx
+                                                }}
+                                            >
+                                                {p.icon}
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         );
