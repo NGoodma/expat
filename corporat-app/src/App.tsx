@@ -398,7 +398,7 @@ const App: React.FC = () => {
                     <div className="board-center">
                         <h1 className="logo-title">ЭКСПАТ</h1>
 
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px', marginBottom: '8px', minHeight: '46px' }}>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: '16px', marginBottom: '8px', minHeight: '46px' }}>
                             {lastRoll && (
                                 <div style={{ display: 'flex', gap: '8px' }}>
                                     <div className={`dice ${isRolling ? 'rolling-dice' : ''}`} style={{ width: '40px', height: '40px', background: '#fff', borderRadius: '8px', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '24px', fontWeight: 'bold', color: '#000', border: '3px solid #000' }}>

@@ -48,13 +48,13 @@ body {
 .app-container {
     width: 100%;
     max-width: 1000px;
-    /* Expanded for desktop */
     height: 100%;
     display: flex;
     flex-direction: column;
-    padding: 16px;
-    padding-top: calc(30px + env(safe-area-inset-top));
-    gap: 16px;
+    padding: 10px;
+    padding-top: calc(10px + env(safe-area-inset-top));
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+    gap: 12px;
 }
 
 /* Comic Panel Utilities */
@@ -137,12 +137,11 @@ header {
     grid-template-columns: repeat(11, minmax(0, 1fr));
     grid-template-rows: repeat(11, minmax(0, 1fr));
     grid-auto-flow: row;
-    gap: 2px;
-    padding: 2px;
+    gap: 1px;
+    padding: 1px;
     background: var(--border-color);
     /* Board borders act as grid lines */
     max-height: 100%;
-    max-width: 100%;
     margin: 0 auto;
     /* Center horizontal */
 }
