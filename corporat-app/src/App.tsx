@@ -234,6 +234,8 @@ const App: React.FC = () => {
 
     // Dynamic font size: full name always shown, just smaller for longer names
     const cellNameFontSize = (name: string): string => {
+        if (name === '❓') return '16px'; // Make the chance tile large
+
         const len = name.length;
         if (len <= 5) return '7.5px';
         if (len <= 9) return '6.5px';

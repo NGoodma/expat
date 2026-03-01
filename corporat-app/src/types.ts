@@ -81,7 +81,7 @@ export const BOARD_CONFIG: BoardEntry[] = [
         buildCost: 50000, rentBase: 2000, rentMonopoly: 4000,
         rent1h: 10000, rent2h: 30000, rent3h: 90000, rent4h: 160000, rentHotel: 250000
     },
-    { name: 'ШАНС', type: 'chest', color: '', price: null },
+    { name: '❓', type: 'chest', color: '', price: null },
     {
         name: 'Parki Ar Minda', type: 'property', color: '#8B4513', price: 60000,
         buildCost: 50000, rentBase: 4000, rentMonopoly: 8000,
@@ -101,7 +101,7 @@ export const BOARD_CONFIG: BoardEntry[] = [
         buildCost: 50000, rentBase: 6000, rentMonopoly: 12000,
         rent1h: 30000, rent2h: 90000, rent3h: 270000, rent4h: 400000, rentHotel: 550000
     },
-    { name: 'Шанс', type: 'chance', color: '', price: null },
+    { name: '❓', type: 'chance', color: '', price: null },
     {
         name: 'Emigration to Action', type: 'property', color: '#87CEEB', price: 100000,
         buildCost: 50000, rentBase: 6000, rentMonopoly: 12000,
@@ -147,7 +147,7 @@ export const BOARD_CONFIG: BoardEntry[] = [
         buildCost: 100000, rentBase: 14000, rentMonopoly: 28000,
         rent1h: 70000, rent2h: 200000, rent3h: 550000, rent4h: 750000, rentHotel: 950000
     },
-    { name: 'ШАНС', type: 'chest', color: '', price: null },
+    { name: '❓', type: 'chest', color: '', price: null },
     {
         name: 'Thats my Georgia', type: 'property', color: '#FFA500', price: 180000,
         buildCost: 100000, rentBase: 14000, rentMonopoly: 28000,
@@ -166,7 +166,7 @@ export const BOARD_CONFIG: BoardEntry[] = [
         buildCost: 150000, rentBase: 18000, rentMonopoly: 36000,
         rent1h: 90000, rent2h: 250000, rent3h: 700000, rent4h: 875000, rentHotel: 1050000
     },
-    { name: 'Шанс', type: 'chance', color: '', price: null },
+    { name: '❓', type: 'chance', color: '', price: null },
     {
         name: 'Аудитория', type: 'property', color: '#FF0000', price: 220000,
         buildCost: 150000, rentBase: 18000, rentMonopoly: 36000,
@@ -217,7 +217,7 @@ export const BOARD_CONFIG: BoardEntry[] = [
         buildCost: 200000, rentBase: 26000, rentMonopoly: 52000,
         rent1h: 130000, rent2h: 390000, rent3h: 900000, rent4h: 1100000, rentHotel: 1275000
     },
-    { name: 'ШАНС', type: 'chest', color: '', price: null },
+    { name: '❓', type: 'chest', color: '', price: null },
     {
         name: 'CHUVI', type: 'property', color: '#008000', price: 320000,
         buildCost: 200000, rentBase: 28000, rentMonopoly: 56000,
@@ -230,7 +230,7 @@ export const BOARD_CONFIG: BoardEntry[] = [
         rent1h: 50000, rent2h: 100000, rent3h: 200000, rent4h: null, rentHotel: null
     },
     // 36  Chance
-    { name: 'Шанс', type: 'chance', color: '', price: null },
+    { name: '❓', type: 'chance', color: '', price: null },
     // 37-39 Dark-blue (#0000CD) price 350-400k, build 200k
     {
         name: 'Colibring Nomads', type: 'property', color: '#0000CD', price: 350000,
