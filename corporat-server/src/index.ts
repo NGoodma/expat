@@ -201,13 +201,22 @@ io.on('connection', (socket: Socket) => {
             const botCount = room.players.filter(p => p.isBot).length;
             const BOT_NAMES = ['бот Руслан', 'бот Марат', 'бот Ваня', 'бот Даша', 'бот Никита'];
             const botName = BOT_NAMES[botCount] || `Бот ${botCount + 1}`;
+
+            const PALETTE = [
+                '#E53935', '#FB8C00', '#FDD835', '#43A047', '#1E88E5',
+                '#8E24AA', '#F06292', '#00ACC1', '#7CB342', '#6D4C41'
+            ];
+            const takenColors = room.players.map(p => p.color);
+            const availableColors = PALETTE.filter(c => !takenColors.includes(c));
+            const botColor = availableColors.length > 0 ? availableColors[0] : `hsl(${Math.random() * 360}, 70%, 50%)`;
+
             const newBot = {
                 id: botId,
                 playerId: botId,
                 name: botName,
                 balance: 1500000,
                 position: 0,
-                color: `hsl(${Math.random() * 360}, 70%, 50%)`,
+                color: botColor,
                 icon: '🤖',
                 isInJail: false,
                 jailRolls: 0,
