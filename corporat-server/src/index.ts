@@ -198,7 +198,7 @@ io.on('connection', (socket: Socket) => {
         if (room && room.state === 'lobby' && room.players.length > 0 && room.players[0].id === socket.id && room.players.length < 6) {
             const botId = 'bot_' + Math.random().toString(36).substr(2, 9);
             const botCount = room.players.filter(p => p.isBot).length;
-            const BOT_NAMES = ['бот Руслан', 'бот Марат', 'бот Ваня'];
+            const BOT_NAMES = ['бот Руслан', 'бот Марат', 'бот Ваня', 'бот Даша', 'бот Никита'];
             const botName = BOT_NAMES[botCount] || `Бот ${botCount + 1}`;
             const newBot = {
                 id: botId,
