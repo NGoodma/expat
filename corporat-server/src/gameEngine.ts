@@ -464,7 +464,7 @@ export function resolveEvent(room: GameRoom, playerId: string, payload: any) {
         const auctionParticipants = room.players.filter(pl => pl.isReady).map(pl => pl.id);
         room.auctionState = {
             cellId: ev.cell.id,
-            highestBid: 10000,
+            highestBid: ev.cell.price || 10000,
             highestBidderId: null,
             participantIds: auctionParticipants,
             activeBidderIndex: (auctionParticipants.indexOf(p.id) + 1) % auctionParticipants.length
@@ -476,7 +476,7 @@ export function resolveEvent(room: GameRoom, playerId: string, payload: any) {
         };
 
     } else if (action === 'bid' && ev.type === 'auction' && room.auctionState) {
-        const bidAmount = room.auctionState.highestBid + 10000;
+        const bidAmount = room.auctionState.highestBidderId ? room.auctionState.highestBid + 10000 : room.auctionState.highestBid;
         if (p.balance >= bidAmount) {
             room.auctionState.highestBid = bidAmount;
             room.auctionState.highestBidderId = p.id;

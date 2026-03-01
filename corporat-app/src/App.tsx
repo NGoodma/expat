@@ -672,22 +672,28 @@ const App: React.FC = () => {
                                         <p style={{ color: 'var(--text-muted)' }}>
                                             Лидер: {auctionState.highestBidderId ? players.find(p => p.id === auctionState.highestBidderId)?.name : 'Нет'}
                                         </p>
-                                        {auctionState.participantIds && auctionState.participantIds[auctionState.activeBidderIndex] === myId ? (
-                                            <div className="btn-row">
-                                                <button
-                                                    className="btn-buy"
-                                                    disabled={(players.find(p => p.id === myId)?.balance || 0) < auctionState.highestBid + 10000}
-                                                    onClick={() => socket.emit('resolve_event', { code: roomId, action: 'bid' })}
-                                                >
-                                                    Ставить ({(auctionState.highestBid + 10000).toLocaleString()} ₾)
-                                                </button>
-                                                <button className="btn-pass" onClick={() => socket.emit('resolve_event', { code: roomId, action: 'pass' })}>Пас</button>
-                                            </div>
-                                        ) : (
-                                            <p style={{ textAlign: 'center', marginTop: '16px', fontWeight: 'bold' }}>
-                                                Ожидание: {players.find(p => p.id === auctionState.participantIds?.[auctionState.activeBidderIndex])?.name || 'Игрока'}...
-                                            </p>
-                                        )}
+                                        {(() => {
+                                            const isMyTurnToBid = auctionState.participantIds && auctionState.participantIds[auctionState.activeBidderIndex] === myId;
+                                            const nextBidAmount = auctionState.highestBidderId ? auctionState.highestBid + 10000 : auctionState.highestBid;
+                                            const canAfford = (players.find(p => p.id === myId)?.balance || 0) >= nextBidAmount;
+
+                                            return isMyTurnToBid ? (
+                                                <div className="btn-row">
+                                                    <button
+                                                        className="btn-buy"
+                                                        disabled={!canAfford}
+                                                        onClick={() => socket.emit('resolve_event', { code: roomId, action: 'bid' })}
+                                                    >
+                                                        Ставить ({nextBidAmount.toLocaleString()} ₾)
+                                                    </button>
+                                                    <button className="btn-pass" onClick={() => socket.emit('resolve_event', { code: roomId, action: 'pass' })}>Пас</button>
+                                                </div>
+                                            ) : (
+                                                <p style={{ textAlign: 'center', marginTop: '16px', fontWeight: 'bold' }}>
+                                                    Ожидание: {players.find(p => p.id === auctionState.participantIds?.[auctionState.activeBidderIndex])?.name || 'Игрока'}...
+                                                </p>
+                                            );
+                                        })()}
                                     </>
                                 )}
 
