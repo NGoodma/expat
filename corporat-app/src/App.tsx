@@ -40,6 +40,12 @@ const App: React.FC = () => {
         amount?: number;
         message?: string;
         targetPlayerId?: string;
+        // trade_proposal fields
+        initiatorId?: string;
+        tradeOfferPropertyIds?: number[];
+        tradeRequestPropertyIds?: number[];
+        tradeOfferAmount?: number;
+        tradeRequestAmount?: number;
     } | null>(null);
 
     const setMyIdSynced = (id: string) => {
@@ -52,10 +58,23 @@ const App: React.FC = () => {
     const [showAssetsModal, setShowAssetsModal] = useState<boolean>(false);
 
     // Trade State
-    const [tradeOfferAmount, setTradeOfferAmount] = useState<number>(0);
-    const [tradeOfferPropertyId, setTradeOfferPropertyId] = useState<number | null>(null);
-    const [tradeRequestPropertyId, setTradeRequestPropertyId] = useState<number | null>(null);
+    const [tradeOfferAmount,   setTradeOfferAmount]   = useState<number>(0);
+    const [tradeRequestAmount, setTradeRequestAmount] = useState<number>(0);
+    const [tradeOfferPropertyIds,   setTradeOfferPropertyIds]   = useState<number[]>([]);
+    const [tradeRequestPropertyIds, setTradeRequestPropertyIds] = useState<number[]>([]);
     const [tradeTargetPlayerId, setTradeTargetPlayerId] = useState<string>('');
+
+    const resetTradeState = () => {
+        setTradeOfferAmount(0);
+        setTradeRequestAmount(0);
+        setTradeOfferPropertyIds([]);
+        setTradeRequestPropertyIds([]);
+        setTradeTargetPlayerId('');
+    };
+
+    const toggleId = (list: number[], setList: (v: number[]) => void, id: number) => {
+        setList(list.includes(id) ? list.filter(x => x !== id) : list.length < 3 ? [...list, id] : list);
+    };
 
     const orchestratorRef = React.useRef({ isAnimating: false });
     // Use a ref for myId so handleRoomUpdate always reads the current value (avoids stale closure)
@@ -159,28 +178,29 @@ const App: React.FC = () => {
     const handleUserAction = (actionType: string) => {
         if (!activeEvent) return;
         if (actionType === 'propose_trade') {
-            const targetId = tradeRequestPropertyId ? cells.find(c => c.id === tradeRequestPropertyId)?.ownerId : tradeTargetPlayerId;
-            if (!targetId) {
-                alert('Выберите игрока или его имущество для сделки!');
+            if (!tradeTargetPlayerId) {
+                alert('Выберите игрока для сделки!');
+                return;
+            }
+            if (tradeOfferPropertyIds.length === 0 && tradeOfferAmount === 0 &&
+                tradeRequestPropertyIds.length === 0 && tradeRequestAmount === 0) {
+                alert('Добавьте хотя бы один актив или сумму в сделку!');
                 return;
             }
             socket.emit('resolve_event', {
                 code: roomId,
                 action: 'propose_trade',
-                tradeTargetPlayerId: targetId,
-                tradeOfferPropertyId,
-                tradeRequestPropertyId,
-                tradeOfferAmount
+                tradeTargetPlayerId,
+                tradeOfferPropertyIds,
+                tradeRequestPropertyIds,
+                tradeOfferAmount,
+                tradeRequestAmount,
             });
             setActiveEvent(null);
-            setTradeRequestPropertyId(null);
-            setTradeOfferPropertyId(null);
-            setTradeOfferAmount(0);
+            resetTradeState();
         } else if (actionType === 'cancel_trade') {
             setActiveEvent(null);
-            setTradeRequestPropertyId(null);
-            setTradeOfferPropertyId(null);
-            setTradeOfferAmount(0);
+            resetTradeState();
         } else {
             console.log(`[App] Resolving event: ${actionType}. Clearing activeEvent.`);
             socket.emit('resolve_event', { code: roomId, action: actionType });
@@ -468,7 +488,7 @@ const App: React.FC = () => {
                                     <button
                                         className="action-btn primary-glow"
                                         onClick={rollDice}
-                                        disabled={!isUserTurn || isUserInDebt || activeEvent !== null || isRolling || orchestratorRef.current.isAnimating}
+                                        disabled={!isUserTurn || isUserInDebt || activeEvent !== null || isRolling}
                                         style={{
                                             padding: '8px 10px',
                                             fontSize: window.innerWidth < 400 ? '11px' : '14px',
@@ -645,84 +665,198 @@ const App: React.FC = () => {
                             <div className="modal-inner">
                                 <div className="modal-title">{activeEvent.cell?.name || (activeEvent.type === 'trade' && 'Сделка')}</div>
 
-                                {activeEvent.type === 'trade' && (
-                                    <>
-                                        <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginBottom: '16px' }}>Обмен с Конкурентом.</p>
+                                {activeEvent.type === 'trade' && (() => {
+                                    const otherPlayers = players.filter(p => p.id !== myId && p.position >= 0);
+                                    const target = players.find(p => p.id === tradeTargetPlayerId);
+                                    // Assets filtered by selected target
+                                    const theirCells = cells.filter(c =>
+                                        tradeTargetPlayerId ? c.ownerId === tradeTargetPlayerId : (c.ownerId !== myId && c.ownerId !== null)
+                                    ).filter(c => c.level === 0);
+                                    const myCells = cells.filter(c => c.ownerId === myId && c.level === 0);
 
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', textAlign: 'left', fontSize: '14px' }}>
-                                            <div>
-                                                <label>Игрок (если только деньги):</label>
-                                                <select
-                                                    style={{ width: '100%', padding: '8px', background: '#e0e0e0', color: '#000', border: '3px solid #000', borderRadius: '4px', marginTop: '4px', fontWeight: 'bold' }}
-                                                    value={tradeTargetPlayerId}
-                                                    onChange={(e) => setTradeTargetPlayerId(e.target.value)}
-                                                >
-                                                    <option value="">Выберите...</option>
-                                                    {players.filter(p => p.id !== myId).map(p => (
-                                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                    const AssetChip = ({ cell, selected, onToggle }: { cell: any, selected: boolean, onToggle: () => void }) => (
+                                        <button
+                                            onClick={onToggle}
+                                            style={{
+                                                display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                                padding: '4px 8px', borderRadius: '6px', cursor: 'pointer',
+                                                border: selected ? '2px solid #000' : '2px solid transparent',
+                                                background: selected ? cell.groupColor || '#555' : 'rgba(0,0,0,0.08)',
+                                                color: selected ? '#fff' : '#222',
+                                                fontWeight: 'bold', fontSize: '11px',
+                                                textShadow: selected ? '0 0 3px #000' : 'none',
+                                                opacity: (!selected && (cell.ownerId === myId ? tradeOfferPropertyIds.length >= 3 : tradeRequestPropertyIds.length >= 3)) ? 0.4 : 1,
+                                                transition: 'all 0.12s',
+                                            }}
+                                        >
+                                            {cell.groupColor && (
+                                                <span style={{ width: 8, height: 8, borderRadius: '50%', background: cell.groupColor, border: '1px solid rgba(0,0,0,0.4)', flexShrink: 0 }} />
+                                            )}
+                                            {cell.name}
+                                        </button>
+                                    );
+
+                                    return (
+                                        <>
+                                            {/* ── Top: choose player + what you want ── */}
+                                            <div style={{ background: 'rgba(0,0,0,0.04)', borderRadius: '10px', padding: '10px', marginBottom: '8px', textAlign: 'left' }}>
+                                                <div style={{ fontWeight: 'bold', fontSize: '11px', textTransform: 'uppercase', opacity: 0.5, marginBottom: '6px' }}>Я хочу получить от…</div>
+
+                                                {/* Player picker */}
+                                                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                                                    {otherPlayers.map(op => (
+                                                        <button
+                                                            key={op.id}
+                                                            onClick={() => {
+                                                                setTradeTargetPlayerId(op.id);
+                                                                setTradeRequestPropertyIds([]);
+                                                            }}
+                                                            style={{
+                                                                display: 'inline-flex', alignItems: 'center', gap: '5px',
+                                                                padding: '5px 10px', borderRadius: '20px', cursor: 'pointer',
+                                                                border: tradeTargetPlayerId === op.id ? '2px solid #000' : '2px solid transparent',
+                                                                background: tradeTargetPlayerId === op.id ? op.color : 'rgba(0,0,0,0.08)',
+                                                                color: tradeTargetPlayerId === op.id ? '#fff' : '#222',
+                                                                fontWeight: 'bold', fontSize: '12px',
+                                                                textShadow: tradeTargetPlayerId === op.id ? '0 0 4px #000' : 'none',
+                                                            }}
+                                                        >
+                                                            <span>{op.icon}</span>
+                                                            <span>{op.name}</span>
+                                                        </button>
                                                     ))}
-                                                </select>
+                                                </div>
+
+                                                {/* Their assets */}
+                                                {theirCells.length > 0 && (
+                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '6px' }}>
+                                                        {theirCells.map(c => (
+                                                            <AssetChip key={c.id} cell={c}
+                                                                selected={tradeRequestPropertyIds.includes(c.id)}
+                                                                onToggle={() => toggleId(tradeRequestPropertyIds, setTradeRequestPropertyIds, c.id)}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                )}
+
+                                                {/* Request cash */}
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
+                                                    <span style={{ fontSize: '12px', opacity: 0.6, whiteSpace: 'nowrap' }}>+ Доплата:</span>
+                                                    <input type="number" min="0" step="10000"
+                                                        value={tradeRequestAmount || ''}
+                                                        onChange={e => setTradeRequestAmount(Math.max(0, Number(e.target.value)))}
+                                                        placeholder="0 ₾"
+                                                        style={{ flex: 1, padding: '4px 6px', border: '2px solid #ccc', borderRadius: '6px', fontWeight: 'bold', fontSize: '13px', minWidth: 0 }}
+                                                    />
+                                                    <span style={{ fontSize: '12px' }}>₾</span>
+                                                </div>
                                             </div>
 
-                                            <div>
-                                                <label>Запросить Актив:</label>
-                                                <select
-                                                    style={{ width: '100%', padding: '8px', background: '#e0e0e0', color: '#000', border: '3px solid #000', borderRadius: '4px', marginTop: '4px', fontWeight: 'bold' }}
-                                                    value={tradeRequestPropertyId || ''}
-                                                    onChange={(e) => setTradeRequestPropertyId(e.target.value ? Number(e.target.value) : null)}
+                                            {/* ── Bottom: what you offer ── */}
+                                            <div style={{ background: 'rgba(0,0,0,0.04)', borderRadius: '10px', padding: '10px', textAlign: 'left' }}>
+                                                <div style={{ fontWeight: 'bold', fontSize: '11px', textTransform: 'uppercase', opacity: 0.5, marginBottom: '6px' }}>Я предлагаю взамен</div>
+
+                                                {myCells.length > 0 && (
+                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '6px' }}>
+                                                        {myCells.map(c => (
+                                                            <AssetChip key={c.id} cell={c}
+                                                                selected={tradeOfferPropertyIds.includes(c.id)}
+                                                                onToggle={() => toggleId(tradeOfferPropertyIds, setTradeOfferPropertyIds, c.id)}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                )}
+
+                                                {/* Offer cash */}
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
+                                                    <span style={{ fontSize: '12px', opacity: 0.6, whiteSpace: 'nowrap' }}>+ Доплата:</span>
+                                                    <input type="number" min="0" step="10000"
+                                                        value={tradeOfferAmount || ''}
+                                                        onChange={e => setTradeOfferAmount(Math.max(0, Number(e.target.value)))}
+                                                        placeholder="0 ₾"
+                                                        style={{ flex: 1, padding: '4px 6px', border: '2px solid #ccc', borderRadius: '6px', fontWeight: 'bold', fontSize: '13px', minWidth: 0 }}
+                                                    />
+                                                    <span style={{ fontSize: '12px' }}>₾</span>
+                                                </div>
+                                            </div>
+
+                                            {/* ── Summary line ── */}
+                                            {(tradeRequestPropertyIds.length > 0 || tradeOfferPropertyIds.length > 0 || tradeOfferAmount > 0 || tradeRequestAmount > 0) && (
+                                                <div style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '8px 0 0', textAlign: 'center' }}>
+                                                    {tradeOfferPropertyIds.length > 0 && <span>Вы отдаёте: {tradeOfferPropertyIds.map(id => cells.find(c => c.id === id)?.name).join(', ')}{tradeOfferAmount > 0 ? ` + ${tradeOfferAmount.toLocaleString('ru-RU')} ₾` : ''}</span>}
+                                                    {tradeOfferPropertyIds.length === 0 && tradeOfferAmount > 0 && <span>Вы отдаёте: {tradeOfferAmount.toLocaleString('ru-RU')} ₾</span>}
+                                                    {(tradeRequestPropertyIds.length > 0 || tradeRequestAmount > 0) && (
+                                                        <span> → {tradeRequestPropertyIds.map(id => cells.find(c => c.id === id)?.name).join(', ')}{tradeRequestAmount > 0 ? ` + ${tradeRequestAmount.toLocaleString('ru-RU')} ₾` : ''}</span>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            <div className="btn-row" style={{ marginTop: '12px' }}>
+                                                <button className="btn-pass" onClick={() => handleUserAction('cancel_trade')}>Отмена</button>
+                                                <button className="btn-buy"
+                                                    disabled={!tradeTargetPlayerId}
+                                                    style={{ opacity: tradeTargetPlayerId ? 1 : 0.5 }}
+                                                    onClick={() => handleUserAction('propose_trade')}
                                                 >
-                                                    <option value="">Ничего</option>
-                                                    {cells.filter(c => c.ownerId !== myId && c.ownerId !== null).map(c => (
-                                                        <option key={c.id} value={c.id}>
-                                                            {c.name} ({players.find(p => p.id === c.ownerId)?.name})
-                                                        </option>
-                                                    ))}
-                                                </select>
+                                                    Предложить {target ? `→ ${target.name}` : ''}
+                                                </button>
                                             </div>
+                                        </>
+                                    );
+                                })()}
 
-                                            <div>
-                                                <label>Ваш Актив:</label>
-                                                <select
-                                                    style={{ width: '100%', padding: '8px', background: '#e0e0e0', color: '#000', border: '3px solid #000', borderRadius: '4px', marginTop: '4px', fontWeight: 'bold' }}
-                                                    value={tradeOfferPropertyId || ''}
-                                                    onChange={(e) => setTradeOfferPropertyId(e.target.value ? Number(e.target.value) : null)}
-                                                >
-                                                    <option value="">Ничего</option>
-                                                    {cells.filter(c => c.ownerId === myId).map(c => (
-                                                        <option key={c.id} value={c.id}>{c.name}</option>
-                                                    ))}
-                                                </select>
+                                {activeEvent.type === 'trade_proposal' && (() => {
+                                    const initiator = players.find(p => p.id === activeEvent.initiatorId);
+                                    const offerIds:   number[] = activeEvent.tradeOfferPropertyIds   || (activeEvent.tradeOfferPropertyId   != null ? [activeEvent.tradeOfferPropertyId]   : []);
+                                    const requestIds: number[] = activeEvent.tradeRequestPropertyIds || (activeEvent.tradeRequestPropertyId != null ? [activeEvent.tradeRequestPropertyId] : []);
+                                    const offerAmt   = activeEvent.tradeOfferAmount   || 0;
+                                    const requestAmt = activeEvent.tradeRequestAmount || 0;
+
+                                    const CellBadge = ({ id }: { id: number }) => {
+                                        const c = cells.find(x => x.id === id);
+                                        if (!c) return null;
+                                        return (
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: c.groupColor || '#555', color: '#fff', borderRadius: '6px', padding: '3px 8px', fontSize: '12px', fontWeight: 'bold', textShadow: '0 0 3px #000' }}>
+                                                {c.groupColor && <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#fff', opacity: 0.8, flexShrink: 0 }} />}
+                                                {c.name}
+                                            </span>
+                                        );
+                                    };
+
+                                    return (
+                                        <>
+                                            <div className="modal-title" style={{ color: 'var(--action-color)' }}>ПРЕДЛОЖЕНИЕ О СДЕЛКЕ</div>
+                                            {initiator && (
+                                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: initiator.color, borderRadius: '20px', padding: '4px 12px', margin: '4px 0 10px', border: '2px solid #000' }}>
+                                                    <span>{initiator.icon}</span>
+                                                    <span style={{ fontWeight: 'bold', color: '#fff', textShadow: '0 0 3px #000', fontSize: '13px' }}>{initiator.name}</span>
+                                                </div>
+                                            )}
+                                            {/* What initiator offers */}
+                                            <div style={{ background: 'rgba(0,0,0,0.04)', borderRadius: '8px', padding: '8px 10px', marginBottom: '6px', textAlign: 'left' }}>
+                                                <div style={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', opacity: 0.5, marginBottom: '5px' }}>Предлагает вам</div>
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
+                                                    {offerIds.map(id => <CellBadge key={id} id={id} />)}
+                                                    {offerAmt > 0 && <span style={{ fontWeight: 'bold', color: 'var(--success)', fontSize: '13px' }}>+{offerAmt.toLocaleString('ru-RU')} ₾</span>}
+                                                    {offerIds.length === 0 && offerAmt === 0 && <span style={{ opacity: 0.4, fontSize: '12px' }}>ничего</span>}
+                                                </div>
                                             </div>
-
-                                            <div>
-                                                <label>Ваша доплата (₾):</label>
-                                                <input
-                                                    type="number"
-                                                    min="0"
-                                                    style={{ width: '100%', padding: '8px', background: '#e0e0e0', color: '#000', border: '3px solid #000', borderRadius: '4px', marginTop: '4px', fontWeight: 'bold' }}
-                                                    value={tradeOfferAmount}
-                                                    onChange={(e) => setTradeOfferAmount(Number(e.target.value))}
-                                                />
+                                            {/* What initiator requests */}
+                                            <div style={{ background: 'rgba(0,0,0,0.04)', borderRadius: '8px', padding: '8px 10px', textAlign: 'left' }}>
+                                                <div style={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', opacity: 0.5, marginBottom: '5px' }}>Хочет получить</div>
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
+                                                    {requestIds.map(id => <CellBadge key={id} id={id} />)}
+                                                    {requestAmt > 0 && <span style={{ fontWeight: 'bold', color: 'var(--danger)', fontSize: '13px' }}>−{requestAmt.toLocaleString('ru-RU')} ₾</span>}
+                                                    {requestIds.length === 0 && requestAmt === 0 && <span style={{ opacity: 0.4, fontSize: '12px' }}>ничего</span>}
+                                                </div>
                                             </div>
-                                        </div>
-
-                                        <div className="btn-row" style={{ marginTop: '24px' }}>
-                                            <button className="btn-pass" onClick={() => handleUserAction('cancel_trade')}>Отмена</button>
-                                            <button className="btn-buy" onClick={() => handleUserAction('propose_trade')}>Предложить</button>
-                                        </div>
-                                    </>
-                                )}
-
-                                {activeEvent.type === 'trade_proposal' && (
-                                    <>
-                                        <div className="modal-title" style={{ color: 'var(--action-color)' }}>ПРЕДЛОЖЕНИЕ О СДЕЛКЕ</div>
-                                        <p style={{ fontSize: '16px', fontWeight: 'bold' }}>{activeEvent.message}</p>
-                                        <div className="btn-row" style={{ marginTop: '24px' }}>
-                                            <button className="btn-pass" onClick={() => handleUserAction('reject_trade')}>Отклонить</button>
-                                            <button className="btn-buy" onClick={() => handleUserAction('accept_trade')}>Принять</button>
-                                        </div>
-                                    </>
-                                )}
+                                            <div className="btn-row" style={{ marginTop: '16px' }}>
+                                                <button className="btn-pass" onClick={() => handleUserAction('reject_trade')}>Отклонить</button>
+                                                <button className="btn-buy" onClick={() => handleUserAction('accept_trade')}>Принять</button>
+                                            </div>
+                                        </>
+                                    );
+                                })()}
 
                                 {activeEvent.type === 'buy' && activeEvent.cell && (
                                     <>

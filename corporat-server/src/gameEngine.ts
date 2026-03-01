@@ -406,44 +406,54 @@ export function resolveEvent(room: GameRoom, playerId: string, payload: any) {
                 }
             }
         } else if (action === 'propose_trade' && !room.activeEvent) {
-            const targetId = payload.tradeTargetPlayerId;
-            const offerCellId = payload.tradeOfferPropertyId;
-            const requestCellId = payload.tradeRequestPropertyId;
-            const offerAmount = Math.max(0, payload.tradeOfferAmount || 0);
+            const targetId       = payload.tradeTargetPlayerId;
+            const offerCellIds: number[]   = (payload.tradeOfferPropertyIds   || []).slice(0, 3);
+            const requestCellIds: number[] = (payload.tradeRequestPropertyIds || []).slice(0, 3);
+            const offerAmount   = Math.max(0, payload.tradeOfferAmount   || 0);
+            const requestAmount = Math.max(0, payload.tradeRequestAmount || 0);
 
-            if (p.balance >= offerAmount) {
-                const targetPlayer = room.players.find(pl => pl.id === targetId);
-                let valid = !!targetPlayer;
+            const targetPlayer = room.players.find(pl => pl.id === targetId);
+            let valid = !!targetPlayer && p.balance >= offerAmount;
 
-                if (valid && offerCellId) {
-                    const offerCell = room.cells.find(c => c.id === offerCellId);
-                    if (!offerCell || offerCell.ownerId !== p.id || offerCell.level > 0) valid = false;
-                }
+            // Validate offered cells (must be owned by initiator, no upgrades)
+            for (const id of offerCellIds) {
+                const cell = room.cells.find(c => c.id === id);
+                if (!cell || cell.ownerId !== p.id || cell.level > 0) { valid = false; break; }
+            }
+            // Validate requested cells (must be owned by target, no upgrades)
+            for (const id of requestCellIds) {
+                const cell = room.cells.find(c => c.id === id);
+                if (!cell || cell.ownerId !== targetId || cell.level > 0) { valid = false; break; }
+            }
+            // At least something must be on the table
+            if (offerCellIds.length === 0 && requestCellIds.length === 0 && offerAmount === 0 && requestAmount === 0) valid = false;
 
-                if (valid && requestCellId) {
-                    const requestCell = room.cells.find(c => c.id === requestCellId);
-                    if (!requestCell || requestCell.ownerId !== targetId || requestCell.level > 0) valid = false;
-                }
+            if (valid) {
+                const offerNames   = offerCellIds.map(id   => room.cells.find(c => c.id === id)?.name).filter(Boolean).join(', ');
+                const requestNames = requestCellIds.map(id => room.cells.find(c => c.id === id)?.name).filter(Boolean).join(', ');
 
-                if (valid) {
-                    const offerName = offerCellId ? room.cells.find(c => c.id === offerCellId)?.name : '';
-                    const requestName = requestCellId ? room.cells.find(c => c.id === requestCellId)?.name : '';
+                const offerParts: string[]   = [];
+                const requestParts: string[] = [];
+                if (offerNames)   offerParts.push(offerNames);
+                if (offerAmount)  offerParts.push(`${offerAmount.toLocaleString('ru-RU')} ₾`);
+                if (requestNames) requestParts.push(requestNames);
+                if (requestAmount) requestParts.push(`${requestAmount.toLocaleString('ru-RU')} ₾`);
 
-                    let msg = `${p.name} предлагает сделку: `;
-                    if (offerName || offerAmount > 0) msg += `Отдает ${offerName} ${offerAmount > 0 ? '+ ' + offerAmount + ' ₾' : ''}`;
-                    if (requestName) msg += ` в обмен на ${requestName}`;
+                let msg = `${p.name} предлагает сделку`;
+                if (offerParts.length)   msg += `: отдаёт [${offerParts.join(' + ')}]`;
+                if (requestParts.length) msg += ` за [${requestParts.join(' + ')}]`;
 
-                    logAction(room, msg);
-                    room.activeEvent = {
-                        type: 'trade_proposal',
-                        targetPlayerId: targetId,
-                        initiatorId: p.id,
-                        tradeOfferPropertyId: offerCellId,
-                        tradeRequestPropertyId: requestCellId,
-                        tradeOfferAmount: offerAmount,
-                        message: msg
-                    };
-                }
+                logAction(room, msg);
+                room.activeEvent = {
+                    type: 'trade_proposal',
+                    targetPlayerId: targetId,
+                    initiatorId: p.id,
+                    tradeOfferPropertyIds:   offerCellIds,
+                    tradeRequestPropertyIds: requestCellIds,
+                    tradeOfferAmount:   offerAmount,
+                    tradeRequestAmount: requestAmount,
+                    message: msg
+                };
             }
         } else {
             isFreeAction = false;
@@ -459,33 +469,50 @@ export function resolveEvent(room: GameRoom, playerId: string, payload: any) {
     if (action === 'accept_trade' && ev.type === 'trade_proposal') {
         const initiator = room.players.find(pl => pl.id === ev.initiatorId);
         if (!initiator) return;
-        if (initiator.balance < ev.tradeOfferAmount) {
+
+        const offerIds:   number[] = ev.tradeOfferPropertyIds   || (ev.tradeOfferPropertyId   != null ? [ev.tradeOfferPropertyId]   : []);
+        const requestIds: number[] = ev.tradeRequestPropertyIds || (ev.tradeRequestPropertyId != null ? [ev.tradeRequestPropertyId] : []);
+        const offerAmt   = ev.tradeOfferAmount   || 0;
+        const requestAmt = ev.tradeRequestAmount || 0;
+
+        if (initiator.balance < offerAmt) {
             logAction(room, `Сделка сорвалась: у ${initiator.name} недостаточно средств.`);
             room.activeEvent = null;
             return;
         }
-        if (ev.tradeOfferPropertyId) {
-            const cell = room.cells.find(c => c.id === ev.tradeOfferPropertyId);
-            if (cell && cell.ownerId === initiator.id && cell.level === 0) {
-                cell.ownerId = p.id;
-            } else {
-                logAction(room, `Сделка сорвалась: Актив инициатора недоступен.`);
+        if (p.balance < requestAmt) {
+            logAction(room, `Сделка сорвалась: у ${p.name} недостаточно средств.`);
+            room.activeEvent = null;
+            return;
+        }
+
+        // Validate offered cells still available
+        for (const id of offerIds) {
+            const cell = room.cells.find(c => c.id === id);
+            if (!cell || cell.ownerId !== initiator.id || cell.level > 0) {
+                logAction(room, `Сделка сорвалась: актив инициатора недоступен.`);
                 room.activeEvent = null;
                 return;
             }
         }
-        if (ev.tradeRequestPropertyId) {
-            const cell = room.cells.find(c => c.id === ev.tradeRequestPropertyId);
-            if (cell && cell.ownerId === p.id && cell.level === 0) {
-                cell.ownerId = initiator.id;
-            } else {
-                logAction(room, `Сделка сорвалась: Ваш актив недоступен.`);
+        // Validate requested cells still available
+        for (const id of requestIds) {
+            const cell = room.cells.find(c => c.id === id);
+            if (!cell || cell.ownerId !== p.id || cell.level > 0) {
+                logAction(room, `Сделка сорвалась: запрошенный актив недоступен.`);
                 room.activeEvent = null;
                 return;
             }
         }
-        initiator.balance -= ev.tradeOfferAmount;
-        p.balance += ev.tradeOfferAmount;
+
+        // Execute transfers
+        for (const id of offerIds)   { room.cells.find(c => c.id === id)!.ownerId = p.id; }
+        for (const id of requestIds) { room.cells.find(c => c.id === id)!.ownerId = initiator.id; }
+        initiator.balance -= offerAmt;
+        p.balance         += offerAmt;
+        initiator.balance += requestAmt;
+        p.balance         -= requestAmt;
+
         logAction(room, `${p.name} принимает сделку от ${initiator.name}!`);
         room.activeEvent = null;
 
@@ -733,20 +760,24 @@ export function botTick(room: GameRoom): boolean {
             // ── Trade proposal ───────────────────────────────────────────────
             if (ev.type === 'trade_proposal') {
                 let accept = false;
-                const offerCell = ev.tradeOfferPropertyId
-                    ? room.cells.find(c => c.id === ev.tradeOfferPropertyId) : null;
-                // Accept if the offered property completes our monopoly
-                if (offerCell && offerCell.groupColor) {
-                    const owned = botGroupOwned(room, offerCell.groupColor, targetBot.id);
-                    const size  = groupSize(room, offerCell.groupColor);
-                    if (owned === size - 1 && size > 1) accept = true;
+                const offerIds: number[] = ev.tradeOfferPropertyIds || (ev.tradeOfferPropertyId != null ? [ev.tradeOfferPropertyId] : []);
+                // Accept if ANY offered property completes our monopoly
+                for (const id of offerIds) {
+                    const offerCell = room.cells.find(c => c.id === id);
+                    if (offerCell && offerCell.groupColor) {
+                        const owned = botGroupOwned(room, offerCell.groupColor, targetBot.id);
+                        const size  = groupSize(room, offerCell.groupColor);
+                        if (owned === size - 1 && size > 1) { accept = true; break; }
+                    }
                 }
-                // Accept pure-money offer that's ≥ 80 % of the requested cell's price
+                // Accept pure-money offer that covers ≥ 80 % of all requested cells' total price
                 if (!accept && ev.tradeOfferAmount > 0) {
-                    const reqCell = ev.tradeRequestPropertyId
-                        ? room.cells.find(c => c.id === ev.tradeRequestPropertyId) : null;
-                    if (!reqCell || ev.tradeOfferAmount >= (reqCell.price ?? 0) * 0.8) accept = true;
+                    const reqIds: number[] = ev.tradeRequestPropertyIds || (ev.tradeRequestPropertyId != null ? [ev.tradeRequestPropertyId] : []);
+                    const totalReqPrice = reqIds.reduce((sum, id) => sum + (room.cells.find(c => c.id === id)?.price ?? 0), 0);
+                    if (ev.tradeOfferAmount >= totalReqPrice * 0.8) accept = true;
                 }
+                // Never accept if we'd have to pay money
+                if ((ev.tradeRequestAmount || 0) > targetBot.balance * 0.3) accept = false;
                 resolveEvent(room, targetBot.id, { action: accept ? 'accept_trade' : 'reject_trade' });
 
             // ── Mandatory payments ───────────────────────────────────────────
