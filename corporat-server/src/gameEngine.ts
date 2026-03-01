@@ -665,14 +665,63 @@ export function removePlayerFromAuction(room: GameRoom, playerId: string) {
 }
 
 // ---- Bot AI ----
+// ---- Bot helpers ----
+
+/** How many cells of this color group does the bot already own? */
+function botGroupOwned(room: GameRoom, groupColor: string, botId: string): number {
+    return room.cells.filter(c => c.groupColor === groupColor && c.type === 'property' && c.ownerId === botId).length;
+}
+
+/** Total cells in a color group */
+function groupSize(room: GameRoom, groupColor: string): number {
+    return room.cells.filter(c => c.groupColor === groupColor && c.type === 'property').length;
+}
+
+/** Does any opponent own (groupSize-1) cells of this color (one away from monopoly)? */
+function opponentNearMonopoly(room: GameRoom, groupColor: string, botId: string): boolean {
+    const size = groupSize(room, groupColor);
+    if (size < 2) return false;
+    const opponents = room.players.filter(p => p.id !== botId && p.position >= 0);
+    return opponents.some(op =>
+        room.cells.filter(c => c.groupColor === groupColor && c.type === 'property' && c.ownerId === op.id).length >= size - 1
+    );
+}
+
+/** Does the bot own a complete color monopoly (none mortgaged)? */
+function botHasMonopoly(room: GameRoom, botId: string): boolean {
+    const colors = [...new Set(
+        room.cells.filter(c => c.type === 'property' && c.groupColor).map(c => c.groupColor)
+    )];
+    return colors.some(color => {
+        const group = room.cells.filter(c => c.groupColor === color && c.type === 'property');
+        return group.length > 0 && group.every(c => c.ownerId === botId && !c.isMortgaged);
+    });
+}
+
+/** Calculate the maximum bid a bot is willing to place for a cell. */
+function botMaxBid(room: GameRoom, bot: Player, cellId: number): number {
+    const cell = room.cells.find(c => c.id === cellId);
+    if (!cell || !cell.price) return 0;
+
+    if (cell.type === 'property' && cell.groupColor) {
+        const owned = botGroupOwned(room, cell.groupColor, bot.id);
+        const size  = groupSize(room, cell.groupColor);
+        if (owned === size - 1) return cell.price * 2.0;            // completes monopoly — pay a lot
+        if (opponentNearMonopoly(room, cell.groupColor, bot.id)) return cell.price * 1.5; // block opponent
+        return cell.price * 1.1;                                    // ordinary property
+    }
+    if (cell.type === 'station') return cell.price * 1.3;
+    if (cell.type === 'utility') return cell.price * 1.1;
+    return cell.price;
+}
+
 export function botTick(room: GameRoom): boolean {
     if (room.state !== 'playing') return false;
 
-    // Pace bots so human can see animations
+    // Pace bots so humans can see animations
     if (Date.now() - room.lastActionTime < 1200) return false;
 
     // ---- Handle events targeting ANY bot regardless of turn ----
-    // (e.g. trade_proposal initiated by a human targeting a bot)
     if (room.activeEvent) {
         const targetBot = room.players.find(
             p => p.isBot && p.id === room.activeEvent?.targetPlayerId
@@ -680,43 +729,155 @@ export function botTick(room: GameRoom): boolean {
         if (targetBot) {
             room.lastActionTime = Date.now();
             const ev = room.activeEvent;
+
+            // ── Trade proposal ───────────────────────────────────────────────
             if (ev.type === 'trade_proposal') {
-                resolveEvent(room, targetBot.id, { action: 'reject_trade' });
+                let accept = false;
+                const offerCell = ev.tradeOfferPropertyId
+                    ? room.cells.find(c => c.id === ev.tradeOfferPropertyId) : null;
+                // Accept if the offered property completes our monopoly
+                if (offerCell && offerCell.groupColor) {
+                    const owned = botGroupOwned(room, offerCell.groupColor, targetBot.id);
+                    const size  = groupSize(room, offerCell.groupColor);
+                    if (owned === size - 1 && size > 1) accept = true;
+                }
+                // Accept pure-money offer that's ≥ 80 % of the requested cell's price
+                if (!accept && ev.tradeOfferAmount > 0) {
+                    const reqCell = ev.tradeRequestPropertyId
+                        ? room.cells.find(c => c.id === ev.tradeRequestPropertyId) : null;
+                    if (!reqCell || ev.tradeOfferAmount >= (reqCell.price ?? 0) * 0.8) accept = true;
+                }
+                resolveEvent(room, targetBot.id, { action: accept ? 'accept_trade' : 'reject_trade' });
+
+            // ── Mandatory payments ───────────────────────────────────────────
             } else if (ev.type === 'rent' || ev.type === 'tax' || ev.type === 'chance') {
                 resolveEvent(room, targetBot.id, { action: 'pay' });
+
+            // ── Buy decision ─────────────────────────────────────────────────
             } else if (ev.type === 'buy') {
-                const price = ev.cell?.price || 0;
-                resolveEvent(room, targetBot.id, { action: targetBot.balance >= price * 1.5 ? 'buy' : 'pass' });
+                const cell  = ev.cell;
+                const price = cell?.price ?? 0;
+                let shouldBuy = false;
+
+                if (targetBot.balance >= price && cell) {
+                    if (cell.type === 'property' && cell.groupColor) {
+                        const owned = botGroupOwned(room, cell.groupColor, targetBot.id);
+                        const size  = groupSize(room, cell.groupColor);
+                        if (owned === size - 1) {
+                            // Completes monopoly — always buy if we can afford it
+                            shouldBuy = true;
+                        } else if (opponentNearMonopoly(room, cell.groupColor, targetBot.id)) {
+                            // Block opponent — buy if we keep at least 10 % reserve
+                            shouldBuy = targetBot.balance >= price * 1.1;
+                        } else {
+                            // Normal purchase — buy if we keep a comfortable reserve
+                            shouldBuy = targetBot.balance >= price * 1.3;
+                        }
+                    } else {
+                        // Stations and utilities: buy if we have a small reserve
+                        shouldBuy = targetBot.balance >= price * 1.2;
+                    }
+                }
+                resolveEvent(room, targetBot.id, { action: shouldBuy ? 'buy' : 'pass' });
+
+            // ── Auction bidding ───────────────────────────────────────────────
             } else if (ev.type === 'auction' && room.auctionState) {
-                const canBid = room.auctionState.highestBid < targetBot.balance * 0.4 && room.auctionState.highestBid < 300000;
+                const nextBid = room.auctionState.highestBidderId
+                    ? room.auctionState.highestBid + 10000
+                    : room.auctionState.highestBid;
+                const maxBid = botMaxBid(room, targetBot, room.auctionState.cellId);
+                // Never let bidding exceed 50 % of current balance
+                const hardCap = targetBot.balance * 0.5;
+                const canBid  = nextBid <= Math.min(maxBid, hardCap);
                 resolveEvent(room, targetBot.id, { action: canBid ? 'bid' : 'pass' });
+
+            // ── Upgrade prompt ────────────────────────────────────────────────
             } else if (ev.type === 'upgrade') {
-                resolveEvent(room, targetBot.id, { action: 'pass' });
+                // Accept if we can still keep a healthy cash reserve afterwards
+                const cost    = ev.amount ?? 0;
+                const reserve = 400000;
+                resolveEvent(room, targetBot.id, { action: targetBot.balance >= cost + reserve ? 'upgrade' : 'pass' });
             }
             return true;
         }
-        // Active event but not targeting a bot — nothing to do
+        // Active event not targeting any bot — nothing to do
         return false;
     }
 
     // ---- No active event: handle the current turn player if it's a bot ----
-    const currentPlayer = room.players[room.turnIndex];
-    if (!currentPlayer || !currentPlayer.isBot) return false;
+    const bot = room.players[room.turnIndex];
+    if (!bot || !bot.isBot) return false;
 
     room.lastActionTime = Date.now();
 
-    // Handle Визаран skip explicitly
-    if (currentPlayer.skipNextTurn) {
-        currentPlayer.skipNextTurn = false;
-        logAction(room, `${currentPlayer.name} на Визаране (пропускает ход).`);
-        room.lastRoll = { r1: 0, r2: 0, playerId: currentPlayer.id, wasSkipTurn: true };
+    // ── Визаран skip ──────────────────────────────────────────────────────────
+    if (bot.skipNextTurn) {
+        bot.skipNextTurn = false;
+        logAction(room, `${bot.name} на Визаране (пропускает ход).`);
+        room.lastRoll = { r1: 0, r2: 0, playerId: bot.id, wasSkipTurn: true };
         endTurn(room);
-    } else if (currentPlayer.isInJail && currentPlayer.balance >= 50000 && Math.random() > 0.5) {
-        resolveEvent(room, currentPlayer.id, { action: 'pay_bail' });
-    } else if (currentPlayer.balance >= 0) {
-        rollDice(room, currentPlayer.id);
-    } else {
-        endTurn(room);
+        return true;
     }
+
+    // ── In debt: sell upgrades → mortgage least-valuable cells ───────────────
+    if (bot.balance < 0) {
+        // 1. Sell upgrades first (most expensive group first to get more cash)
+        const upgradedCell = room.cells
+            .filter(c => c.ownerId === bot.id && c.level > 0)
+            .sort((a, b) => (b.buildCost ?? 0) - (a.buildCost ?? 0))[0];
+        if (upgradedCell) {
+            resolveEvent(room, bot.id, { action: 'sell_upgrade', cellId: upgradedCell.id });
+            return true;
+        }
+        // 2. Mortgage cheapest unmortgaged property with no group upgrades
+        const mortgageCandidate = room.cells
+            .filter(c => {
+                if (c.ownerId !== bot.id || c.level > 0 || c.isMortgaged) return false;
+                const group = room.cells.filter(gc => gc.groupColor === c.groupColor && gc.type === 'property');
+                return !group.some(gc => gc.level > 0);
+            })
+            .sort((a, b) => (a.price ?? 0) - (b.price ?? 0))[0];
+        if (mortgageCandidate) {
+            resolveEvent(room, bot.id, { action: 'mortgage', cellId: mortgageCandidate.id });
+            return true;
+        }
+        // Nothing else to sell — declare bankruptcy
+        endTurn(room);
+        return true;
+    }
+
+    // ── Proactive upgrade: build evenly on monopoly groups ───────────────────
+    // (Runs before rolling so the bot spends money wisely each turn)
+    const UPGRADE_RESERVE = 500000;
+    const upgradeTarget = room.cells
+        .filter(c => {
+            if (c.ownerId !== bot.id || c.type !== 'property' || c.level >= 5 || c.isMortgaged) return false;
+            const group = room.cells.filter(gc => gc.groupColor === c.groupColor && gc.type === 'property');
+            if (!group.every(gc => gc.ownerId === bot.id && !gc.isMortgaged)) return false;
+            const minLevel = Math.min(...group.map(gc => gc.level));
+            return c.level === minLevel; // only upgrade the cell(s) at minimum level
+        })
+        .sort((a, b) => (a.price ?? 0) - (b.price ?? 0))[0]; // start with cheapest group
+
+    if (upgradeTarget) {
+        const cost = upgradeTarget.buildCost ?? (upgradeTarget.price ?? 0) * 0.5;
+        if (bot.balance >= cost + UPGRADE_RESERVE) {
+            resolveEvent(room, bot.id, { action: 'manual_upgrade', cellId: upgradeTarget.id });
+            return true;
+        }
+    }
+
+    // ── Jail ─────────────────────────────────────────────────────────────────
+    if (bot.isInJail) {
+        // Pay bail if: 3rd attempt, OR has a monopoly and enough cash to keep spending
+        const mustPay   = bot.jailRolls >= 2;
+        const wantsPay  = botHasMonopoly(room, bot.id) && bot.balance >= 200000;
+        if (bot.balance >= 50000 && (mustPay || wantsPay)) {
+            resolveEvent(room, bot.id, { action: 'pay_bail' });
+            return true;
+        }
+    }
+
+    rollDice(room, bot.id);
     return true;
 }
