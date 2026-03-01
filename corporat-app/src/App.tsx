@@ -373,7 +373,7 @@ const App: React.FC = () => {
             <header className="glass-panel" style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', minHeight: '34px', alignItems: 'center' }}>
                     <h3 style={{ margin: 0, opacity: 0.8 }}>Игроки</h3>
-                    <div style={{ display: 'flex', gap: '4px', visibility: (isUserTurn && !activeEvent && !showAssetsModal) ? 'visible' : 'hidden' }}>
+                    <div style={{ display: 'flex', gap: '4px', visibility: (isUserTurn && (!activeEvent || activeEvent.type === 'buy') && !showAssetsModal) ? 'visible' : 'hidden' }}>
                         <button onClick={() => setShowAssetsModal(true)} className="action-btn" style={{ padding: '4px 10px', fontSize: '12px' }}>Мои Активы</button>
                         <button onClick={() => setActiveEvent({ type: 'trade' })} className="action-btn" style={{ background: '#fff', padding: '4px 10px', fontSize: '12px' }}>Сделка</button>
                     </div>
