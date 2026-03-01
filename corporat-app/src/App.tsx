@@ -656,7 +656,7 @@ const App: React.FC = () => {
             {
                 activeEvent && (activeEvent.targetPlayerId === myId || activeEvent.type === 'trade') && (
                     <div className="modal-overlay">
-                        <div className="modal-content">
+                        <div className="modal-content" style={activeEvent.type === 'trade' ? { maxHeight: '90vh', overflowY: 'auto' } : undefined}>
                             {activeEvent.cell?.groupColor && (
                                 <div className="property-banner" style={{ background: activeEvent.cell.groupColor }}>
                                     <div className="property-banner-inner">АКТИВ</div>
