@@ -533,10 +533,10 @@ const App: React.FC = () => {
                                 key={cell.id}
                                 className={`cell ${getCellColor(cell.type)}`}
                                 style={{
-                                    gridArea: `${pos.row} / ${pos.col} / span 1 / span 1`,
-                                    ...(owner && cell.type !== 'go' && { background: '#f5f5f5' })
+                                    gridArea: `${pos.row} / ${pos.col} / span 1 / span 1`
                                 }}
                             >
+                                {owner && <div className="owner-indicator" style={{ background: owner.color }}></div>}
                                 {isProperty && cell.groupColor && (
                                     <div className="cell-color-band" style={{ background: cell.groupColor }}>
                                         {cell.level > 0 && (
@@ -553,7 +553,7 @@ const App: React.FC = () => {
                                         <span className="cell-price">{owner ? (calculateRent(cell) / 1000) : (cell.price / 1000)}k</span>
                                     )}
                                 </div>
-                                {owner && <div className="owner-indicator" style={{ background: owner.color }}></div>}
+
                                 {cell.isMortgaged && (
                                     <div className="mortgaged-overlay"><span>Заложено</span></div>
                                 )}
