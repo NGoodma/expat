@@ -581,7 +581,7 @@ const App: React.FC = () => {
                                                 key={p.id}
                                                 className="player-token"
                                                 style={{
-                                                    marginBottom: (isOverlapping && idx > 0) ? '-10px' : (idx > 0 && !isOverlapping ? '2px' : '0'),
+                                                    marginBottom: (isOverlapping && idx > 0) ? '-16px' : (idx > 0 && !isOverlapping ? '2px' : '0'),
                                                     zIndex: 10 + idx
                                                 }}
                                             >
