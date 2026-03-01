@@ -651,7 +651,8 @@ export function botTick(room: GameRoom): boolean {
             } else if (ev.type === 'rent' || ev.type === 'tax' || ev.type === 'chance') {
                 resolveEvent(room, targetBot.id, { action: 'pay' });
             } else if (ev.type === 'buy') {
-                resolveEvent(room, targetBot.id, { action: targetBot.balance >= ev.cell.price * 1.5 ? 'buy' : 'pass' });
+                const price = ev.cell?.price || 0;
+                resolveEvent(room, targetBot.id, { action: targetBot.balance >= price * 1.5 ? 'buy' : 'pass' });
             } else if (ev.type === 'auction' && room.auctionState) {
                 const canBid = room.auctionState.highestBid < targetBot.balance * 0.4 && room.auctionState.highestBid < 300000;
                 resolveEvent(room, targetBot.id, { action: canBid ? 'bid' : 'pass' });

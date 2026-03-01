@@ -269,7 +269,9 @@ io.on('connection', (socket: Socket) => {
                 console.log(`[Socket] Broadcasting room_update for ${data.code}`);
                 io.to(data.code).emit('room_update', room);
             } catch (err) {
-                console.error('[Socket] Error in rollDice:', err);
+                console.error('[Socket] CRITICAL Error in rollDice:', err);
+                // In case of error, still emit room update to explicitly cancel the infinite dice spin on client
+                io.to(data.code).emit('room_update', room);
             }
         }
     });
