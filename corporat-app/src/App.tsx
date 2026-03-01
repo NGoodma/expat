@@ -419,8 +419,9 @@ const App: React.FC = () => {
                                         onClick={rollDice}
                                         disabled={!isUserTurn || isUserInDebt || activeEvent !== null}
                                         style={{
-                                            padding: '8px 16px',
-                                            fontSize: '14px',
+                                            padding: '8px 10px',
+                                            fontSize: window.innerWidth < 400 ? '11px' : '14px',
+                                            whiteSpace: 'nowrap',
                                             opacity: (!isUserTurn || isUserInDebt || activeEvent !== null) ? 0.5 : 1,
                                             ...(isSkipping && isUserTurn && { background: 'var(--action-color)' })
                                         }}
