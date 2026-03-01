@@ -728,6 +728,13 @@ const App: React.FC = () => {
                                     <>
                                         <p style={{ color: 'var(--text-muted)', fontSize: '14px', fontWeight: 'bold' }}>Свободная территория</p>
                                         <div className="modal-price">{activeEvent.cell.price?.toLocaleString('ru-RU')} ₾</div>
+                                        <button
+                                            className="action-btn"
+                                            style={{ width: '100%', marginBottom: '12px', padding: '8px', fontSize: '13px', background: '#f5f5f5', color: '#333', border: '2px solid #ccc' }}
+                                            onClick={() => setShowAssetsModal(true)}
+                                        >
+                                            💼 Мои Активы (заложить для покупки)
+                                        </button>
                                         <div className="btn-row">
                                             <button className="btn-buy" onClick={() => handleUserAction('buy')}>Купить</button>
                                             <button className="btn-pass" onClick={() => handleUserAction('pass')}>Аукцион</button>
