@@ -285,19 +285,14 @@ const Lobby: React.FC<LobbyProps> = ({ onGameStart }) => {
                 {view === 'home' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         <input type="text" placeholder="Ваше Имя" value={name} onChange={e => setName(e.target.value)} style={{ padding: '12px', fontSize: '16px', border: '3px solid #000', borderRadius: '8px', fontWeight: 'bold' }} />
-                        <button className="action-btn" onClick={() => setView('create')} style={{ background: 'var(--primary-color)' }}>Создать Комнату</button>
+                        <button className="action-btn" onClick={handleCreateRoom} disabled={loading} style={{ background: 'var(--primary-color)' }}>
+                            {loading ? 'Создание...' : 'Создать Комнату'}
+                        </button>
                         <button className="action-btn" onClick={() => setView('join')} style={{ background: 'var(--secondary)' }}>Войти в Комнату</button>
                     </div>
                 )}
 
-                {view === 'create' && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        <button className="action-btn" onClick={handleCreateRoom} disabled={loading} style={{ background: 'var(--success)' }}>
-                            {loading ? 'Создание...' : 'Подтвердить Создание'}
-                        </button>
-                        <button className="action-btn" onClick={() => setView('home')} style={{ background: '#eee', color: '#000' }}>Назад</button>
-                    </div>
-                )}
+
 
                 {view === 'join' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
