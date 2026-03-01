@@ -365,7 +365,7 @@ export function resolveEvent(room: GameRoom, playerId: string, payload: any) {
             const targetId = payload.tradeTargetPlayerId;
             const offerCellId = payload.tradeOfferPropertyId;
             const requestCellId = payload.tradeRequestPropertyId;
-            const offerAmount = payload.tradeOfferAmount || 0;
+            const offerAmount = Math.max(0, payload.tradeOfferAmount || 0);
 
             if (p.balance >= offerAmount) {
                 const targetPlayer = room.players.find(pl => pl.id === targetId);
@@ -508,6 +508,7 @@ export function resolveEvent(room: GameRoom, playerId: string, payload: any) {
         endTurn(room);
 
     } else if (action === 'pay' && ev.type === 'rent') {
+        room.activeEvent = null; // Prevent double-clicks
         const owner = room.players.find(pl => pl.id === ev.cell.ownerId);
         if (owner) {
             owner.balance += ev.amount;
@@ -517,7 +518,7 @@ export function resolveEvent(room: GameRoom, playerId: string, payload: any) {
         }
         p.balance -= ev.amount;
         logAction(room, `${p.name} платит аренду ${ev.amount} ₾.`);
-        room.activeEvent = null;
+
         if (p.balance >= 0) {
             p.debtTo = null;
             endTurn(room);
@@ -526,10 +527,11 @@ export function resolveEvent(room: GameRoom, playerId: string, payload: any) {
         }
 
     } else if (action === 'pay' && ev.type === 'tax') {
+        room.activeEvent = null; // Prevent double-clicks
         p.balance -= ev.amount;
         p.debtTo = null;
         logAction(room, `${p.name} платит налог ${ev.amount} ₾.`);
-        room.activeEvent = null;
+
         if (p.balance >= 0) {
             endTurn(room);
         } else {
@@ -537,9 +539,10 @@ export function resolveEvent(room: GameRoom, playerId: string, payload: any) {
         }
 
     } else if (action === 'pay' && ev.type === 'chance') {
+        room.activeEvent = null; // Prevent double-clicks
         p.balance += ev.amount;
         p.debtTo = null;
-        room.activeEvent = null;
+
         if (p.balance >= 0) {
             endTurn(room);
         } else {
