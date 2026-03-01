@@ -807,8 +807,8 @@ const App: React.FC = () => {
 
                                 {activeEvent.type === 'trade_proposal' && (() => {
                                     const initiator = players.find(p => p.id === activeEvent.initiatorId);
-                                    const offerIds:   number[] = activeEvent.tradeOfferPropertyIds   || (activeEvent.tradeOfferPropertyId   != null ? [activeEvent.tradeOfferPropertyId]   : []);
-                                    const requestIds: number[] = activeEvent.tradeRequestPropertyIds || (activeEvent.tradeRequestPropertyId != null ? [activeEvent.tradeRequestPropertyId] : []);
+                                    const offerIds:   number[] = activeEvent.tradeOfferPropertyIds   || [];
+                                    const requestIds: number[] = activeEvent.tradeRequestPropertyIds || [];
                                     const offerAmt   = activeEvent.tradeOfferAmount   || 0;
                                     const requestAmt = activeEvent.tradeRequestAmount || 0;
 
