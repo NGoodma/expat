@@ -121,7 +121,7 @@ export const BOARD_CONFIG: BoardEntry[] = [
         rent1h: 50000, rent2h: 150000, rent3h: 450000, rent4h: 625000, rentHotel: 750000
     },
     {
-        name: 'Silknet', type: 'utility', color: '#c2c2c2', price: 150000,
+        name: 'Silknet', type: 'utility', color: '#3F51B5', price: 150000,
         buildCost: null, rentBase: 0, rentMonopoly: null,
         rent1h: null, rent2h: null, rent3h: null, rent4h: null, rentHotel: null
     },
@@ -195,7 +195,7 @@ export const BOARD_CONFIG: BoardEntry[] = [
         rent1h: 110000, rent2h: 330000, rent3h: 800000, rent4h: 975000, rentHotel: 1150000
     },
     {
-        name: 'Magticom', type: 'utility', color: '#c2c2c2', price: 150000,
+        name: 'Magticom', type: 'utility', color: '#3F51B5', price: 150000,
         buildCost: null, rentBase: 0, rentMonopoly: null,
         rent1h: null, rent2h: null, rent3h: null, rent4h: null, rentHotel: null
     },

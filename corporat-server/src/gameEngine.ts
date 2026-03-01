@@ -144,7 +144,8 @@ export function evaluateCellLanding(room: GameRoom, pIndex: number, cellId: numb
                 return true;
             }
         } else {
-            const rent = calculateRent(room, cell);
+            const diceTotal = room.lastRoll ? (room.lastRoll.r1 + room.lastRoll.r2) : 7;
+            const rent = calculateRent(room, cell, diceTotal);
             room.activeEvent = { type: 'rent', cell, amount: rent, targetPlayerId: p.id };
             return false;
         }

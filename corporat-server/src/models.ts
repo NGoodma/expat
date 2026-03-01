@@ -74,7 +74,7 @@ const S = (name: string, price: number) => ({
 });
 
 const U = (name: string) => ({
-    name, type: 'utility' as const, color: '#c2c2c2', price: 150000,
+    name, type: 'utility' as const, color: '#3F51B5', price: 150000,
     buildCost: null, rentBase: 0, rentMonopoly: null,
     rent1h: null, rent2h: null, rent3h: null, rent4h: null, rentHotel: null,
 });
