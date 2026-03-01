@@ -147,8 +147,8 @@ header {
 }
 
 .board-center {
-    grid-column: 3 / 10;
-    grid-row: 3 / 10;
+    grid-column: 2 / 11;
+    grid-row: 2 / 11;
     background: var(--panel-bg);
     display: flex;
     flex-direction: column;
