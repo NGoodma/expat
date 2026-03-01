@@ -16,7 +16,7 @@ export function endTurn(room: GameRoom) {
         const creditor = room.players.find(p => p.id === currentPlayer.debtTo);
 
         if (creditor) {
-            creditor.balance += currentPlayer.balance;
+            creditor.balance += Math.max(0, currentPlayer.balance);
             logAction(room, `Его активы уходят к ${creditor.name}.`);
         }
 
@@ -598,6 +598,22 @@ function nextAuctionTurn(room: GameRoom, advanceIndex: boolean) {
 
     if (room.activeEvent) {
         room.activeEvent.targetPlayerId = nextBidderId;
+    }
+}
+
+export function removePlayerFromAuction(room: GameRoom, playerId: string) {
+    if (!room.auctionState) return;
+    const idx = room.auctionState.participantIds.indexOf(playerId);
+    if (idx !== -1) {
+        room.auctionState.participantIds.splice(idx, 1);
+        logAction(room, `Игрок удален из аукциона из-за отключения.`);
+        if (room.auctionState.activeBidderIndex >= room.auctionState.participantIds.length) {
+            room.auctionState.activeBidderIndex = 0;
+        }
+        if (room.activeEvent && room.activeEvent.type === 'auction') {
+            room.activeEvent.targetPlayerId = room.auctionState.participantIds[room.auctionState.activeBidderIndex] || '';
+        }
+        nextAuctionTurn(room, false);
     }
 }
 

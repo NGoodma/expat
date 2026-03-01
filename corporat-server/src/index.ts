@@ -3,7 +3,7 @@ import { createServer } from 'http';
 import { Server, Socket } from 'socket.io';
 import cors from 'cors';
 import { GameRoom, Player, getInitialCells } from './models';
-import { rollDice, resolveEvent, botTick, logAction, endTurn } from './gameEngine';
+import { rollDice, resolveEvent, botTick, logAction, endTurn, removePlayerFromAuction } from './gameEngine';
 
 const app = express();
 app.use(cors());
@@ -183,6 +183,7 @@ io.on('connection', (socket: Socket) => {
     socket.on('leave_room', (data: { code: string }) => {
         const room = rooms.get(data.code);
         if (room) {
+            removePlayerFromAuction(room, socket.id);
             room.players = room.players.filter(p => p.id !== socket.id);
             socket.leave(data.code);
             if (room.players.length === 0) {
@@ -296,6 +297,7 @@ io.on('connection', (socket: Socket) => {
                     }
                 } else {
                     // Game is running — keep player alive, give 90s to rejoin
+                    removePlayerFromAuction(room, disconnectedPlayer.id);
                     disconnectedPlayer.isReady = false;
                     disconnectedPlayer.doubleCount = 0; // prevent stuck on extra turn
                     logAction(room, `${disconnectedPlayer.name} потерял связь. 90 сек на переподключение.`);
