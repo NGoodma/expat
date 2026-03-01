@@ -77,7 +77,15 @@ header {
 .user-info {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
+    /* Slightly tighter gap to fit 2 columns */
+}
+
+.players-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    width: 100%;
 }
 
 .avatar {
@@ -95,14 +103,15 @@ header {
 }
 
 .details h2 {
-    font-size: 16px;
+    font-size: 13px;
+    /* Slightly smaller for 2 columns */
     font-weight: 900;
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
 
 .balance {
-    font-size: 15px;
+    font-size: 13px;
     color: #000;
     font-weight: 900;
     background: var(--success);

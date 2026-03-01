@@ -380,17 +380,19 @@ const App: React.FC = () => {
                         <button onClick={() => setActiveEvent({ type: 'trade' })} className="action-btn" style={{ background: '#fff', padding: '4px 10px', fontSize: '12px' }}>Сделка</button>
                     </div>
                 </div>
-                {players.map((p, idx) => (
-                    <div key={p.id} className="user-info" style={{ opacity: turnIndex === idx ? 1 : 0.5, marginBottom: idx === 0 ? '8px' : '0' }}>
-                        <div className="avatar" style={{ background: p.color }}>{p.icon}</div>
-                        <div className="details">
-                            <h2>{p.name} {turnIndex === idx && <span style={{ fontSize: '12px', color: '#E53935', fontWeight: '900', marginLeft: '4px', textShadow: '0 0 2px #fff' }}>Ходит</span>}</h2>
-                            <div className="balance">
-                                <span className="currency">₾</span> <span>{p.balance.toLocaleString('ru-RU')}</span>
+                <div className="players-grid">
+                    {players.map((p, idx) => (
+                        <div key={p.id} className="user-info" style={{ opacity: turnIndex === idx ? 1 : 0.5, marginBottom: '0' }}>
+                            <div className="avatar" style={{ background: p.color }}>{p.icon}</div>
+                            <div className="details">
+                                <h2>{p.name} {turnIndex === idx && <span style={{ fontSize: '12px', color: '#E53935', fontWeight: '900', marginLeft: '4px', textShadow: '0 0 2px #fff' }}>Ходит</span>}</h2>
+                                <div className="balance">
+                                    <span className="currency">₾</span> <span>{p.balance.toLocaleString('ru-RU')}</span>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                ))}
+                    ))}
+                </div>
             </header>
 
             <main className="board-container">
