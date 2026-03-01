@@ -269,7 +269,8 @@ export function rollDice(room: GameRoom, playerId: string) {
             movePlayer(room, pIndex, total);
         } else if (p.jailRolls >= 2) {
             // 3rd failed attempt (jailRolls: 0→1→2) — forced bail
-            logAction(room, `Третья неудачная попытка! ${p.name} выходит на залог.`);
+            logAction(room, `Третья неудачная попытка! ${p.name} принудительно платит залог 50k ₾ и выходит.`);
+            p.balance -= 50000;
             p.isInJail = false;
             p.jailRolls = 0;
             movePlayer(room, pIndex, total);
