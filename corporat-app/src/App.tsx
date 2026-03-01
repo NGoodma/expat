@@ -209,7 +209,7 @@ const App: React.FC = () => {
         if (!cell.rentBase) return 0;
         if (cell.level === 0) {
             const groupCells = cells.filter(c => c.groupColor === cell.groupColor && c.type === 'property');
-            const hasMonopoly = groupCells.every(c => c.ownerId === cell.ownerId);
+            const hasMonopoly = groupCells.every(c => c.ownerId === cell.ownerId && !c.isMortgaged);
             return hasMonopoly ? (cell.rentMonopoly ?? cell.rentBase * 2) : cell.rentBase;
         }
         const rentByLevel = [0, cell.rent1h, cell.rent2h, cell.rent3h, cell.rent4h, cell.rentHotel];

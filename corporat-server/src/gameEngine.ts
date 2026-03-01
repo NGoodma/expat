@@ -105,7 +105,7 @@ export function calculateRent(room: GameRoom, cell: CellData, diceTotal?: number
     if (cell.level === 0) {
         // Check monopoly (owns full color group)
         const groupCells = room.cells.filter(c => c.groupColor === cell.groupColor && c.type === 'property');
-        const hasMonopoly = groupCells.every(c => c.ownerId === cell.ownerId);
+        const hasMonopoly = groupCells.every(c => c.ownerId === cell.ownerId && !c.isMortgaged);
         return hasMonopoly ? (cell.rentMonopoly ?? cell.rentBase * 2) : cell.rentBase;
     }
     if (cell.level === 1) return cell.rent1h ?? 0;
@@ -131,11 +131,25 @@ export function evaluateCellLanding(room: GameRoom, pIndex: number, cellId: numb
             if (cell.level < 5 && cell.type === 'property') {
                 const groupProps = room.cells.filter(c => c.groupColor === cell.groupColor && c.type === 'property');
                 const ownsAllGroup = groupProps.every(c => c.ownerId === p.id);
+                const noneMortgaged = groupProps.every(c => !c.isMortgaged);
+
                 if (!ownsAllGroup) {
                     logAction(room, `Для улучшения нужно собрать весь цвет: ${cell.groupColor}`);
                     endTurn(room);
                     return true;
+                } else if (!noneMortgaged) {
+                    logAction(room, `Нельзя строить, пока в группе есть заложенные карточки!`);
+                    endTurn(room);
+                    return true;
                 } else {
+                    // Check uniform building: cannot build if this cell's level is > min level in group
+                    const minLevel = Math.min(...groupProps.map(c => c.level));
+                    if (cell.level > minLevel) {
+                        logAction(room, `Нужно строить равномерно! Сначала улучшите другие карточки цвета ${cell.groupColor}`);
+                        endTurn(room);
+                        return true;
+                    }
+
                     room.activeEvent = { type: 'upgrade', cell, amount: upgradeCost, targetPlayerId: p.id };
                     return false;
                 }
@@ -338,28 +352,52 @@ export function resolveEvent(room: GameRoom, playerId: string, payload: any) {
         } else if (action === 'manual_upgrade' && cellId !== undefined && !room.activeEvent) {
             const c = room.cells.find(c => c.id === cellId);
             if (c && c.ownerId === p.id && c.type === 'property' && c.level < 5) {
-                const upgradeCost = c.buildCost ?? c.price! * 0.5;
-                if (p.balance >= upgradeCost) {
-                    p.balance -= upgradeCost;
-                    c.level += 1;
-                    logAction(room, `${p.name} улучшает ${c.name} (ур. ${c.level})`);
+                const groupProps = room.cells.filter(gc => gc.groupColor === c.groupColor && gc.type === 'property');
+                const noneMortgaged = groupProps.every(gc => !gc.isMortgaged);
+                const minLevel = Math.min(...groupProps.map(gc => gc.level));
+
+                if (!noneMortgaged) {
+                    logAction(room, `Нельзя строить, пока в группе есть заложенные карточки!`);
+                } else if (c.level > minLevel) {
+                    logAction(room, `Нужно строить равномерно! Сначала улучшите другие карточки цвета ${c.groupColor}`);
+                } else {
+                    const upgradeCost = c.buildCost ?? c.price! * 0.5;
+                    if (p.balance >= upgradeCost) {
+                        p.balance -= upgradeCost;
+                        c.level += 1;
+                        logAction(room, `${p.name} улучшает ${c.name} (ур. ${c.level})`);
+                    }
                 }
             }
         } else if (action === 'sell_upgrade' && cellId !== undefined) {
             const c = room.cells.find(c => c.id === cellId);
             if (c && c.ownerId === p.id && c.level > 0) {
-                const gain = (c.buildCost ?? c.price! * 0.5) * 0.5;
-                p.balance += gain;
-                c.level -= 1;
-                logAction(room, `${p.name} продает филиал ${c.name} (+${gain / 1000}k ₾)`);
+                const groupProps = room.cells.filter(gc => gc.groupColor === c.groupColor && gc.type === 'property');
+                const maxLevel = Math.max(...groupProps.map(gc => gc.level));
+
+                if (c.level < maxLevel) {
+                    logAction(room, `Нужно продавать равномерно! Сначала продайте филиалы с более развитых карточек.`);
+                } else {
+                    const gain = (c.buildCost ?? c.price! * 0.5) * 0.5;
+                    p.balance += gain;
+                    c.level -= 1;
+                    logAction(room, `${p.name} продает филиал ${c.name} (+${gain / 1000}k ₾)`);
+                }
             }
         } else if (action === 'mortgage' && cellId !== undefined) {
             const c = room.cells.find(c => c.id === cellId);
             if (c && c.ownerId === p.id && c.level === 0 && !c.isMortgaged) {
-                const val = c.price! * 0.5;
-                p.balance += val;
-                c.isMortgaged = true;
-                logAction(room, `${p.name} закладывает ${c.name} (+${val / 1000}k ₾)`);
+                const groupProps = room.cells.filter(gc => gc.groupColor === c.groupColor && gc.type === 'property');
+                const hasBranches = groupProps.some(gc => gc.level > 0);
+
+                if (hasBranches) {
+                    logAction(room, `Нельзя закладывать карточку, пока в этой группе есть филиалы!`);
+                } else {
+                    const val = c.price! * 0.5;
+                    p.balance += val;
+                    c.isMortgaged = true;
+                    logAction(room, `${p.name} закладывает ${c.name} (+${val / 1000}k ₾)`);
+                }
             }
         } else if (action === 'unmortgage' && cellId !== undefined && !room.activeEvent) {
             const c = room.cells.find(c => c.id === cellId);
