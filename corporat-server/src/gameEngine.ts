@@ -324,7 +324,11 @@ export function resolveEvent(room: GameRoom, playerId: string, payload: any) {
         } else if (action === 'end_turn' && !room.activeEvent) {
             if (p.balance >= 0) endTurn(room);
         } else if (action === 'declare_bankruptcy') {
-            if (p.balance < 0) endTurn(room);
+            if (p.balance < 0 || payload.force) {
+                // If they have positive balance but force bankruptcy, set it to negative so endTurn() picks it up
+                if (p.balance >= 0 && payload.force) p.balance = -1;
+                endTurn(room);
+            }
         } else if (action === 'manual_upgrade' && cellId !== undefined && !room.activeEvent) {
             const c = room.cells.find(c => c.id === cellId);
             if (c && c.ownerId === p.id && c.type === 'property' && c.level < 5) {

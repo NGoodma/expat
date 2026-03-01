@@ -445,12 +445,23 @@ const App: React.FC = () => {
                                             if (players[myIndex].balance + checkTotalAssetsValue(myIndex) < 0) {
                                                 socket.emit('resolve_event', { code: roomId, action: 'declare_bankruptcy' });
                                             } else {
-                                                alert("У вас достаточно активов для погашения! Продайте их через 'Мои Активы'.");
+                                                alert("У вас достаточно активов для погашения! Продайте их через 'Мои Активы', либо нажмите 'Сдаться'.");
                                             }
                                         }}
                                         style={{ background: 'var(--danger)', color: '#fff' }}
                                     >
                                         Объявить Банкротство
+                                    </button>
+                                    <button
+                                        className="action-btn"
+                                        onClick={() => {
+                                            if (window.confirm("Вы уверены, что хотите СДАТЬСЯ? Вы покинете игру, а всё ваше имущество уйдет за долги!")) {
+                                                socket.emit('resolve_event', { code: roomId, action: 'declare_bankruptcy', force: true });
+                                            }
+                                        }}
+                                        style={{ background: '#555', color: '#fff', fontSize: '12px' }}
+                                    >
+                                        ☠️ Сдаться и выйти из игры
                                     </button>
                                     <button
                                         className="action-btn"
