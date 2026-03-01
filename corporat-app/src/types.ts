@@ -81,7 +81,7 @@ export const BOARD_CONFIG: BoardEntry[] = [
         buildCost: 50000, rentBase: 2000, rentMonopoly: 4000,
         rent1h: 10000, rent2h: 30000, rent3h: 90000, rent4h: 160000, rentHotel: 250000
     },
-    { name: 'Общ. Казна', type: 'chest', color: '', price: null },
+    { name: 'ШАНС', type: 'chest', color: '', price: null },
     {
         name: 'Parki Ar Minda', type: 'property', color: '#8B4513', price: 60000,
         buildCost: 50000, rentBase: 4000, rentMonopoly: 8000,
@@ -147,7 +147,7 @@ export const BOARD_CONFIG: BoardEntry[] = [
         buildCost: 100000, rentBase: 14000, rentMonopoly: 28000,
         rent1h: 70000, rent2h: 200000, rent3h: 550000, rent4h: 750000, rentHotel: 950000
     },
-    { name: 'Общ. Казна', type: 'chest', color: '', price: null },
+    { name: 'ШАНС', type: 'chest', color: '', price: null },
     {
         name: 'Thats my Georgia', type: 'property', color: '#FFA500', price: 180000,
         buildCost: 100000, rentBase: 14000, rentMonopoly: 28000,
@@ -217,7 +217,7 @@ export const BOARD_CONFIG: BoardEntry[] = [
         buildCost: 200000, rentBase: 26000, rentMonopoly: 52000,
         rent1h: 130000, rent2h: 390000, rent3h: 900000, rent4h: 1100000, rentHotel: 1275000
     },
-    { name: 'Общ. Казна', type: 'chest', color: '', price: null },
+    { name: 'ШАНС', type: 'chest', color: '', price: null },
     {
         name: 'CHUVI', type: 'property', color: '#008000', price: 320000,
         buildCost: 200000, rentBase: 28000, rentMonopoly: 56000,
