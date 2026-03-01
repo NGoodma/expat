@@ -477,7 +477,7 @@ const App: React.FC = () => {
                                             ...(isSkipping && isUserTurn && { background: 'var(--action-color)' })
                                         }}
                                     >
-                                        {isSkipping && isUserTurn ? '✈️ Вернуться' : 'Бросить кубики'}
+                                        {isSkipping && isUserTurn ? '✈️ Вернуться из Армении' : 'Бросить кубики'}
                                     </button>
                                 );
                             })()}
