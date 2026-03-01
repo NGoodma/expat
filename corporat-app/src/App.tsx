@@ -398,16 +398,38 @@ const App: React.FC = () => {
                     <div className="board-center">
                         <h1 className="logo-title">ЭКСПАТ</h1>
 
-                        {lastRoll && (
-                            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-                                <div className={`dice ${isRolling ? 'rolling-dice' : ''}`} style={{ width: '40px', height: '40px', background: '#fff', borderRadius: '8px', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '24px', fontWeight: 'bold', color: '#000', border: '3px solid #000' }}>
-                                    {isRolling ? '❓' : lastRoll.r1}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px', marginBottom: '8px', minHeight: '46px' }}>
+                            {lastRoll && (
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    <div className={`dice ${isRolling ? 'rolling-dice' : ''}`} style={{ width: '40px', height: '40px', background: '#fff', borderRadius: '8px', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '24px', fontWeight: 'bold', color: '#000', border: '3px solid #000' }}>
+                                        {isRolling ? '❓' : lastRoll.r1}
+                                    </div>
+                                    <div className={`dice ${isRolling ? 'rolling-dice' : ''}`} style={{ width: '40px', height: '40px', background: '#fff', borderRadius: '8px', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '24px', fontWeight: 'bold', color: '#000', border: '3px solid #000' }}>
+                                        {isRolling ? '❓' : lastRoll.r2}
+                                    </div>
                                 </div>
-                                <div className={`dice ${isRolling ? 'rolling-dice' : ''}`} style={{ width: '40px', height: '40px', background: '#fff', borderRadius: '8px', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '24px', fontWeight: 'bold', color: '#000', border: '3px solid #000' }}>
-                                    {isRolling ? '❓' : lastRoll.r2}
-                                </div>
-                            </div>
-                        )}
+                            )}
+
+                            {(() => {
+                                const myPlayer = players.find(p => p.id === myId);
+                                const isSkipping = myPlayer?.skipNextTurn === true;
+                                return (
+                                    <button
+                                        className="action-btn primary-glow"
+                                        onClick={rollDice}
+                                        disabled={!isUserTurn || isUserInDebt || activeEvent !== null}
+                                        style={{
+                                            padding: '8px 16px',
+                                            fontSize: '14px',
+                                            opacity: (!isUserTurn || isUserInDebt || activeEvent !== null) ? 0.5 : 1,
+                                            ...(isSkipping && isUserTurn && { background: 'var(--action-color)' })
+                                        }}
+                                    >
+                                        {isSkipping && isUserTurn ? '✈️ Вернуться' : 'Бросить кубики'}
+                                    </button>
+                                );
+                            })()}
+                        </div>
 
                         {/* Bail button — shown whenever in jail on your turn */}
                         {(() => {
@@ -477,23 +499,7 @@ const App: React.FC = () => {
                             );
                         })()}
 
-                        {(() => {
-                            const myPlayer = players.find(p => p.id === myId);
-                            const isSkipping = myPlayer?.skipNextTurn === true;
-                            return (
-                                <button
-                                    className="action-btn primary-glow"
-                                    onClick={rollDice}
-                                    disabled={!isUserTurn || isUserInDebt || activeEvent !== null}
-                                    style={{
-                                        opacity: (!isUserTurn || isUserInDebt || activeEvent !== null) ? 0.5 : 1,
-                                        ...(isSkipping && isUserTurn && { background: 'var(--action-color)' })
-                                    }}
-                                >
-                                    {isSkipping && isUserTurn ? '✈️  Вернуться из Армении' : 'Бросить кубики'}
-                                </button>
-                            );
-                        })()}
+
 
                         {/* Action log feed inside board-center */}
                         <div style={{

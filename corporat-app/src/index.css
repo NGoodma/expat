@@ -53,6 +53,7 @@ body {
     display: flex;
     flex-direction: column;
     padding: 16px;
+    padding-top: calc(16px + env(safe-area-inset-top));
     gap: 16px;
 }
 
