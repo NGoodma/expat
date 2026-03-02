@@ -852,9 +852,15 @@ export function botTick(room: GameRoom): boolean {
 
     // ── In debt: sell upgrades → mortgage least-valuable cells ───────────────
     if (bot.balance < 0) {
-        // 1. Sell upgrades first (most expensive group first to get more cash)
+        // 1. Sell upgrades first — only cells that are at the max level of their group
+        //    (server requires even downgrade: c.level must equal maxLevel in group)
         const upgradedCell = room.cells
-            .filter(c => c.ownerId === bot.id && c.level > 0)
+            .filter(c => {
+                if (c.ownerId !== bot.id || c.level <= 0) return false;
+                const group = room.cells.filter(gc => gc.groupColor === c.groupColor && gc.type === 'property');
+                const maxLevel = Math.max(...group.map(gc => gc.level));
+                return c.level === maxLevel;
+            })
             .sort((a, b) => (b.buildCost ?? 0) - (a.buildCost ?? 0))[0];
         if (upgradedCell) {
             resolveEvent(room, bot.id, { action: 'sell_upgrade', cellId: upgradedCell.id });

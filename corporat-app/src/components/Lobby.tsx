@@ -17,12 +17,27 @@ function getOrCreatePlayerId(): string {
     return id;
 }
 
+const SESSION_TTL_MS = 5 * 60 * 1000; // 5 минут
+
 function saveSession(roomCode: string) {
     localStorage.setItem('corporat_roomCode', roomCode);
+    localStorage.setItem('corporat_roomTimestamp', String(Date.now()));
 }
 
 function clearSession() {
     localStorage.removeItem('corporat_roomCode');
+    localStorage.removeItem('corporat_roomTimestamp');
+}
+
+function getSavedSessionCode(): string | null {
+    const code = localStorage.getItem('corporat_roomCode');
+    if (!code) return null;
+    const ts = Number(localStorage.getItem('corporat_roomTimestamp') ?? '0');
+    if (Date.now() - ts > SESSION_TTL_MS) {
+        clearSession();
+        return null;
+    }
+    return code;
 }
 
 // ─── Color palette ───────────────────────────────────────────────────────────
@@ -56,7 +71,7 @@ const Lobby: React.FC<LobbyProps> = ({ onGameStart }) => {
     // ── Auto-rejoin on mount if a session was saved ──────────────────────────
     useEffect(() => {
         socket.connect();
-        const savedCode = localStorage.getItem('corporat_roomCode');
+        const savedCode = getSavedSessionCode();
 
         const handleRoomUpdate = (updatedRoom: GameRoom) => {
             setRoom(updatedRoom);
@@ -95,7 +110,7 @@ const Lobby: React.FC<LobbyProps> = ({ onGameStart }) => {
     // ── Socket reconnect: re-emit rejoin_room ────────────────────────────────
     useEffect(() => {
         const handleReconnect = () => {
-            const savedCode = localStorage.getItem('corporat_roomCode');
+            const savedCode = getSavedSessionCode();
             if (savedCode) {
                 socket.emit('rejoin_room', { code: savedCode, playerId }, (res: any) => {
                     if (!res.success) {

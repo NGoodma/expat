@@ -360,6 +360,8 @@ const App: React.FC = () => {
                 if (room.actionLog && room.actionLog.length > 0) {
                     setActionLog(room.actionLog.slice(-6).reverse());
                 }
+                // Refresh session TTL while the game is active
+                localStorage.setItem('corporat_roomTimestamp', String(Date.now()));
             }
         };
 
@@ -975,10 +977,10 @@ const App: React.FC = () => {
                         <div className="modal-content" style={{ maxHeight: '80vh', overflowY: 'auto' }}>
                             <div className="modal-title" style={{ color: 'var(--text-main)' }}>УПРАВЛЕНИЕ АКТИВАМИ</div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '16px' }}>
-                                {cells.filter(c => c.ownerId === myId && c.type === 'property').length === 0 && (
+                                {cells.filter(c => c.ownerId === myId && (c.type === 'property' || c.type === 'station' || c.type === 'utility')).length === 0 && (
                                     <p style={{ color: 'var(--text-muted)' }}>У вас пока нет активов.</p>
                                 )}
-                                {cells.filter(c => c.ownerId === myId && c.type === 'property').map(c => {
+                                {cells.filter(c => c.ownerId === myId && (c.type === 'property' || c.type === 'station' || c.type === 'utility')).map(c => {
                                     const mortgageValue = (c.price || 0) * 0.5;
                                     const unmortgageCost = Math.round(mortgageValue * 1.10);
                                     const upgradeCost = c.buildCost ?? (c.price || 0) * 0.5;
@@ -1014,7 +1016,7 @@ const App: React.FC = () => {
                                             </div>
 
                                             <div style={{ display: 'flex', gap: '8px', marginTop: '12px', flexWrap: 'wrap' }}>
-                                                {!c.isMortgaged && ownsAllGroup && c.level < 5 && (
+                                                {c.type === 'property' && !c.isMortgaged && ownsAllGroup && c.level < 5 && (
                                                     <button
                                                         className="action-btn"
                                                         disabled={!!upgradeMonopolyReason}
@@ -1032,7 +1034,7 @@ const App: React.FC = () => {
                                                         + Улучшить ({Math.round(upgradeCost / 1000)}k ₾)
                                                     </button>
                                                 )}
-                                                {!c.isMortgaged && c.level > 0 && (
+                                                {c.type === 'property' && !c.isMortgaged && c.level > 0 && (
                                                     <button
                                                         className="action-btn"
                                                         disabled={!!sellMonopolyReason}
