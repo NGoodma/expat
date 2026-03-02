@@ -986,6 +986,25 @@ const App: React.FC = () => {
 
                                     const groupProps = cells.filter(gc => gc.groupColor === c.groupColor && gc.type === 'property');
                                     const ownsAllGroup = groupProps.every(gc => gc.ownerId === myId);
+                                    const noneMortgaged = groupProps.every(gc => !gc.isMortgaged);
+                                    const minGroupLevel = Math.min(...groupProps.map(gc => gc.level));
+                                    const maxGroupLevel = Math.max(...groupProps.map(gc => gc.level));
+                                    const groupHasBranches = groupProps.some(gc => gc.level > 0);
+                                    const myPlayer = players.find(p => p.id === myId);
+
+                                    // Причины блокировки кнопок монополией
+                                    const upgradeMonopolyReason =
+                                        !noneMortgaged ? 'Нельзя строить, пока в монополии есть заложенные карточки' :
+                                        c.level > minGroupLevel ? 'Все активы одной монополии должны развиваться равномерно' :
+                                        '';
+                                    const sellMonopolyReason =
+                                        c.level < maxGroupLevel ? 'Все активы одной монополии должны сворачиваться равномерно' :
+                                        '';
+                                    const mortgageMonopolyReason =
+                                        groupHasBranches ? 'Нельзя заложить актив, пока в монополии есть филиалы' :
+                                        '';
+
+                                    const disabledStyle: React.CSSProperties = { opacity: 0.45, cursor: 'not-allowed' };
 
                                     return (
                                         <div key={c.id} style={{ display: 'flex', flexDirection: 'column', padding: '8px', border: '1px solid #ccc', borderRadius: '8px', background: c.isMortgaged ? '#fdd' : '#fff' }}>
@@ -998,9 +1017,11 @@ const App: React.FC = () => {
                                                 {!c.isMortgaged && ownsAllGroup && c.level < 5 && (
                                                     <button
                                                         className="action-btn"
-                                                        style={{ padding: '8px', fontSize: '12px', background: 'var(--success)', flex: 1 }}
+                                                        disabled={!!upgradeMonopolyReason}
+                                                        title={upgradeMonopolyReason || undefined}
+                                                        style={{ padding: '8px', fontSize: '12px', background: 'var(--success)', flex: 1, ...(upgradeMonopolyReason ? disabledStyle : {}) }}
                                                         onClick={() => {
-                                                            const myPlayer = players.find(p => p.id === myId);
+                                                            if (upgradeMonopolyReason) { alert(upgradeMonopolyReason); return; }
                                                             if ((myPlayer?.balance ?? 0) >= upgradeCost) {
                                                                 socket.emit('resolve_event', { code: roomId, action: 'manual_upgrade', cellId: c.id });
                                                             } else {
@@ -1014,8 +1035,11 @@ const App: React.FC = () => {
                                                 {!c.isMortgaged && c.level > 0 && (
                                                     <button
                                                         className="action-btn"
-                                                        style={{ padding: '8px', fontSize: '12px', background: 'var(--danger)', color: '#fff', flex: 1 }}
+                                                        disabled={!!sellMonopolyReason}
+                                                        title={sellMonopolyReason || undefined}
+                                                        style={{ padding: '8px', fontSize: '12px', background: 'var(--danger)', color: '#fff', flex: 1, ...(sellMonopolyReason ? disabledStyle : {}) }}
                                                         onClick={() => {
+                                                            if (sellMonopolyReason) { alert(sellMonopolyReason); return; }
                                                             if (window.confirm(`Продать филиал «${c.name}»? Вы получите +${Math.round(sellUpgradeGain / 1000)}k ₾.`)) {
                                                                 socket.emit('resolve_event', { code: roomId, action: 'sell_upgrade', cellId: c.id });
                                                             }
@@ -1027,8 +1051,11 @@ const App: React.FC = () => {
                                                 {!c.isMortgaged && c.level === 0 && (
                                                     <button
                                                         className="action-btn"
-                                                        style={{ padding: '8px', fontSize: '12px', background: 'var(--danger)', color: '#fff', flex: 1 }}
+                                                        disabled={!!mortgageMonopolyReason}
+                                                        title={mortgageMonopolyReason || undefined}
+                                                        style={{ padding: '8px', fontSize: '12px', background: 'var(--danger)', color: '#fff', flex: 1, ...(mortgageMonopolyReason ? disabledStyle : {}) }}
                                                         onClick={() => {
+                                                            if (mortgageMonopolyReason) { alert(mortgageMonopolyReason); return; }
                                                             if (window.confirm(`Заложить «${c.name}»? Вы получите +${Math.round(mortgageValue / 1000)}k ₾, но аренда с неё не будет взиматься.`)) {
                                                                 socket.emit('resolve_event', { code: roomId, action: 'mortgage', cellId: c.id });
                                                             }
@@ -1042,7 +1069,6 @@ const App: React.FC = () => {
                                                         className="action-btn"
                                                         style={{ padding: '8px', fontSize: '12px', background: 'var(--success)', flex: 1 }}
                                                         onClick={() => {
-                                                            const myPlayer = players.find(p => p.id === myId);
                                                             if ((myPlayer?.balance ?? 0) >= unmortgageCost) {
                                                                 socket.emit('resolve_event', { code: roomId, action: 'unmortgage', cellId: c.id });
                                                             } else {
