@@ -18,6 +18,17 @@ const io = new Server(httpServer, {
 
 const rooms = new Map<string, GameRoom>();
 
+// ---- Per-socket rate limiting ----
+const rateLimits = new Map<string, number>(); // socketId → last-event timestamp (ms)
+
+function isRateLimited(socketId: string, minIntervalMs = 300): boolean {
+    const last = rateLimits.get(socketId) ?? 0;
+    const now = Date.now();
+    if (now - last < minIntervalMs) return true;
+    rateLimits.set(socketId, now);
+    return false;
+}
+
 // Tick bots at 500ms for consistent timing (bot delay is enforced inside botTick via lastActionTime)
 setInterval(() => {
     rooms.forEach(room => {
@@ -184,11 +195,19 @@ io.on('connection', (socket: Socket) => {
         const room = rooms.get(data.code);
         if (room) {
             removePlayerFromAuction(room, socket.id);
+            const leavingIndex = room.players.findIndex(p => p.id === socket.id);
             room.players = room.players.filter(p => p.id !== socket.id);
             socket.leave(data.code);
             if (room.players.length === 0) {
                 rooms.delete(data.code);
             } else {
+                // Adjust turnIndex so it doesn't point past the end of the array
+                if (leavingIndex !== -1 && leavingIndex < room.turnIndex) {
+                    room.turnIndex = Math.max(0, room.turnIndex - 1);
+                }
+                if (room.turnIndex >= room.players.length) {
+                    room.turnIndex = 0;
+                }
                 io.to(data.code).emit('room_update', room);
             }
         }
@@ -258,6 +277,7 @@ io.on('connection', (socket: Socket) => {
     });
 
     socket.on('roll_dice', (data: { code: string }) => {
+        if (isRateLimited(socket.id)) return;
         const room = rooms.get(data.code);
         if (room && room.state === 'playing') {
             try {
@@ -277,6 +297,7 @@ io.on('connection', (socket: Socket) => {
     });
 
     socket.on('resolve_event', (data: any) => {
+        if (isRateLimited(socket.id)) return;
         const room = rooms.get(data.code);
         if (room && room.state === 'playing') {
             try {
@@ -294,6 +315,7 @@ io.on('connection', (socket: Socket) => {
     });
 
     socket.on('disconnect', () => {
+        rateLimits.delete(socket.id);
         console.log(`User disconnected: ${socket.id}`);
         for (const [code, room] of rooms.entries()) {
             const pIndex = room.players.findIndex(p => p.id === socket.id);
@@ -331,7 +353,13 @@ io.on('connection', (socket: Socket) => {
                             if (currentRoom.players.length === 0) {
                                 rooms.delete(code);
                             } else {
-                                if (currentRoom.turnIndex >= currentRoom.players.length) currentRoom.turnIndex = 0;
+                                // Mirror the same turnIndex fix as leave_room
+                                if (idx < currentRoom.turnIndex) {
+                                    currentRoom.turnIndex = Math.max(0, currentRoom.turnIndex - 1);
+                                }
+                                if (currentRoom.turnIndex >= currentRoom.players.length) {
+                                    currentRoom.turnIndex = 0;
+                                }
                                 io.to(code).emit('room_update', currentRoom);
                             }
                         }

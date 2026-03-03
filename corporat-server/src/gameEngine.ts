@@ -10,11 +10,30 @@ export function endTurn(room: GameRoom) {
     console.log(`[Trace] endTurn called. Room: ${room.id}, turnIndex was: ${room.turnIndex}`);
     const currentPlayer = room.players[room.turnIndex];
 
+    // Guard: turnIndex out of bounds (e.g. player was spliced out)
+    if (!currentPlayer) {
+        console.error(`[endTurn] currentPlayer is undefined (turnIndex=${room.turnIndex}, players=${room.players.length}). Resetting to 0.`);
+        room.turnIndex = 0;
+        return;
+    }
+
     // ---- Bankruptcy check ----
     if (currentPlayer.balance < 0) {
         logAction(room, `Банкротство! ${currentPlayer.name} выбывает из игры.`);
 
-        // All assets are freed back to the market (improvements stripped, mortgages cleared)
+        const creditorId = currentPlayer.debtTo ?? null;
+        const debtAmount = -currentPlayer.balance; // positive number
+
+        if (creditorId) {
+            // Creditor receives the debt amount in cash; assets go back to the market
+            const creditor = room.players.find(p => p.id === creditorId);
+            if (creditor) {
+                creditor.balance += debtAmount;
+                logAction(room, `${creditor.name} получает ${debtAmount.toLocaleString('ru-RU')} ₾ от банкротства ${currentPlayer.name}.`);
+            }
+        }
+
+        // All assets go back to the market (improvements stripped, mortgages cleared)
         room.cells.forEach(c => {
             if (c.ownerId === currentPlayer.id) {
                 c.ownerId = null;
@@ -25,6 +44,7 @@ export function endTurn(room: GameRoom) {
 
         currentPlayer.balance = 0;
         currentPlayer.isReady = false;
+        currentPlayer.doubleCount = 0; // prevent bankrupt player from getting an extra turn
         // position = -1 is the "off-board" sentinel: token won't render on any cell
         currentPlayer.position = -1;
     }
@@ -123,36 +143,9 @@ export function evaluateCellLanding(room: GameRoom, pIndex: number, cellId: numb
             room.activeEvent = { type: 'buy', cell, targetPlayerId: p.id };
             return false;
         } else if (cell.ownerId === p.id) {
-            const upgradeCost = cell.buildCost ?? cell.price! * 0.5;
-            if (cell.level < 5 && cell.type === 'property') {
-                const groupProps = room.cells.filter(c => c.groupColor === cell.groupColor && c.type === 'property');
-                const ownsAllGroup = groupProps.every(c => c.ownerId === p.id);
-                const noneMortgaged = groupProps.every(c => !c.isMortgaged);
-
-                if (!ownsAllGroup) {
-                    logAction(room, `Для улучшения нужно собрать весь цвет: ${cell.groupColor}`);
-                    endTurn(room);
-                    return true;
-                } else if (!noneMortgaged) {
-                    logAction(room, `Нельзя строить, пока в группе есть заложенные карточки!`);
-                    endTurn(room);
-                    return true;
-                } else {
-                    // Check uniform building: cannot build if this cell's level is > min level in group
-                    const minLevel = Math.min(...groupProps.map(c => c.level));
-                    if (cell.level > minLevel) {
-                        logAction(room, `Нужно строить равномерно! Сначала улучшите другие карточки цвета ${cell.groupColor}`);
-                        endTurn(room);
-                        return true;
-                    }
-
-                    room.activeEvent = { type: 'upgrade', cell, amount: upgradeCost, targetPlayerId: p.id };
-                    return false;
-                }
-            } else {
-                endTurn(room);
-                return true;
-            }
+            // Own property: no modal — upgrades are done via the Assets menu
+            endTurn(room);
+            return true;
         } else {
             const diceTotal = room.lastRoll ? (room.lastRoll.r1 + room.lastRoll.r2) : 7;
             const rent = calculateRent(room, cell, diceTotal);
@@ -236,9 +229,15 @@ export function movePlayer(room: GameRoom, pIndex: number, amount: number): bool
 
 export function rollDice(room: GameRoom, playerId: string) {
     room.lastActionTime = Date.now();
-    console.log(`[GameEngine] Roll. Room: ${room.id}, Turn: ${room.turnIndex}, TurnPlayer: ${room.players[room.turnIndex].id}, Requester: ${playerId}`);
 
-    if (room.players[room.turnIndex].id !== playerId) {
+    const currentTurnPlayer = room.players[room.turnIndex];
+    if (!currentTurnPlayer) {
+        console.error(`[rollDice] turnIndex ${room.turnIndex} out of bounds (players: ${room.players.length}). Skipping.`);
+        return;
+    }
+    console.log(`[GameEngine] Roll. Room: ${room.id}, Turn: ${room.turnIndex}, TurnPlayer: ${currentTurnPlayer.id}, Requester: ${playerId}`);
+
+    if (currentTurnPlayer.id !== playerId) {
         console.log('[GameEngine] Not your turn, ignoring.');
         return;
     }
@@ -350,7 +349,7 @@ export function resolveEvent(room: GameRoom, playerId: string, payload: any) {
             if (c && c.ownerId === p.id && c.type === 'property' && c.level < 5) {
                 const groupProps = room.cells.filter(gc => gc.groupColor === c.groupColor && gc.type === 'property');
                 const noneMortgaged = groupProps.every(gc => !gc.isMortgaged);
-                const minLevel = Math.min(...groupProps.map(gc => gc.level));
+                const minLevel = groupProps.length > 0 ? Math.min(...groupProps.map(gc => gc.level)) : 0;
 
                 if (!noneMortgaged) {
                     logAction(room, `Нельзя строить, пока в группе есть заложенные карточки!`);
@@ -367,14 +366,14 @@ export function resolveEvent(room: GameRoom, playerId: string, payload: any) {
             }
         } else if (action === 'sell_upgrade' && cellId !== undefined) {
             const c = room.cells.find(c => c.id === cellId);
-            if (c && c.ownerId === p.id && c.level > 0) {
+            if (c && c.ownerId === p.id && c.type === 'property' && c.level > 0) {
                 const groupProps = room.cells.filter(gc => gc.groupColor === c.groupColor && gc.type === 'property');
-                const maxLevel = Math.max(...groupProps.map(gc => gc.level));
+                const maxLevel = groupProps.length > 0 ? Math.max(...groupProps.map(gc => gc.level)) : c.level;
 
                 if (c.level < maxLevel) {
                     logAction(room, `Нужно продавать равномерно! Сначала продайте филиалы с более развитых карточек.`);
                 } else {
-                    const gain = (c.buildCost ?? c.price! * 0.5) * 0.5;
+                    const gain = (c.buildCost ?? (c.price ?? 0) * 0.5) * 0.5;
                     p.balance += gain;
                     c.level -= 1;
                     logAction(room, `${p.name} продает филиал ${c.name} (+${gain / 1000}k ₾)`);
@@ -531,20 +530,27 @@ export function resolveEvent(room: GameRoom, playerId: string, payload: any) {
 
     } else if (action === 'pass' && ev.type === 'buy') {
         logAction(room, `${p.name} отказывается от покупки. Начинается аукцион!`);
-        // Only include active (non-bankrupt) players in auction
-        const auctionParticipants = room.players.filter(pl => pl.isReady).map(pl => pl.id);
-        room.auctionState = {
-            cellId: ev.cell.id,
-            highestBid: ev.cell.price || 10000,
-            highestBidderId: null,
-            participantIds: auctionParticipants,
-            activeBidderIndex: (auctionParticipants.indexOf(p.id) + 1) % auctionParticipants.length
-        };
-        room.activeEvent = {
-            type: 'auction',
-            cell: ev.cell,
-            targetPlayerId: room.auctionState.participantIds[room.auctionState.activeBidderIndex]
-        };
+        // Only include active (non-bankrupt) players in auction; exclude the player who passed
+        const auctionParticipants = room.players.filter(pl => pl.isReady && pl.id !== p.id).map(pl => pl.id);
+        if (auctionParticipants.length === 0) {
+            // No one to auction to — skip
+            logAction(room, `Аукцион отменён: нет участников.`);
+            room.activeEvent = null;
+            endTurn(room);
+        } else {
+            room.auctionState = {
+                cellId: ev.cell.id,
+                highestBid: ev.cell.price || 10000,
+                highestBidderId: null,
+                participantIds: auctionParticipants,
+                activeBidderIndex: 0
+            };
+            room.activeEvent = {
+                type: 'auction',
+                cell: ev.cell,
+                targetPlayerId: room.auctionState.participantIds[0]
+            };
+        }
 
     } else if (action === 'bid' && ev.type === 'auction' && room.auctionState) {
         const bidAmount = room.auctionState.highestBidderId ? room.auctionState.highestBid + 10000 : room.auctionState.highestBid;
