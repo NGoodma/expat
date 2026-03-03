@@ -354,6 +354,10 @@ const App: React.FC = () => {
                     setIsRolling(false);
                     setLastRoll(room.lastRoll || null);
                     setActiveEvent(room.activeEvent as any);
+                    // Close Assets modal if a blocking event arrived (rent, tax, trade proposal, etc.)
+                    if (room.activeEvent && room.activeEvent.type !== 'buy') {
+                        setShowAssetsModal(false);
+                    }
                 }
 
                 if (room.auctionState !== undefined) setAuctionState(room.auctionState as any);

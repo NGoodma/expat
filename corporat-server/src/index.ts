@@ -277,7 +277,12 @@ io.on('connection', (socket: Socket) => {
     });
 
     socket.on('roll_dice', (data: { code: string }) => {
-        if (isRateLimited(socket.id)) return;
+        if (isRateLimited(socket.id)) {
+            // Still emit current state so client doesn't get stuck spinning
+            const room = rooms.get(data.code);
+            if (room) socket.emit('room_update', room);
+            return;
+        }
         const room = rooms.get(data.code);
         if (room && room.state === 'playing') {
             try {
@@ -297,7 +302,12 @@ io.on('connection', (socket: Socket) => {
     });
 
     socket.on('resolve_event', (data: any) => {
-        if (isRateLimited(socket.id)) return;
+        if (isRateLimited(socket.id)) {
+            // Still emit current state so client doesn't get stuck waiting
+            const room = rooms.get(data.code);
+            if (room) socket.emit('room_update', room);
+            return;
+        }
         const room = rooms.get(data.code);
         if (room && room.state === 'playing') {
             try {
@@ -359,6 +369,10 @@ io.on('connection', (socket: Socket) => {
                                 }
                                 if (currentRoom.turnIndex >= currentRoom.players.length) {
                                     currentRoom.turnIndex = 0;
+                                }
+                                // If the kicked player was the current turn holder, advance the turn
+                                if (idx === currentRoom.turnIndex || currentRoom.players[currentRoom.turnIndex]?.position < 0) {
+                                    endTurn(currentRoom);
                                 }
                                 io.to(code).emit('room_update', currentRoom);
                             }

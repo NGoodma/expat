@@ -75,10 +75,13 @@ export function endTurn(room: GameRoom) {
     currentPlayer.doubleCount = 0;
 
     // ---- Find next active (non-bankrupt) player ----
+    // Skip: bankrupt players (position < 0)  OR  disconnected humans (!isReady && !isBot).
+    // Bots are always isReady=true so they're never skipped by the second condition.
+    const canTakeTurn = (p: Player) => p.position >= 0 && (p.isReady || !!p.isBot);
     const total = room.players.length;
     let nextIndex = (room.turnIndex + 1) % total;
     let tries = 0;
-    while (!room.players[nextIndex].isReady && tries < total) {
+    while (!canTakeTurn(room.players[nextIndex]) && tries < total) {
         nextIndex = (nextIndex + 1) % total;
         tries++;
     }
@@ -348,15 +351,18 @@ export function resolveEvent(room: GameRoom, playerId: string, payload: any) {
             const c = room.cells.find(c => c.id === cellId);
             if (c && c.ownerId === p.id && c.type === 'property' && c.level < 5) {
                 const groupProps = room.cells.filter(gc => gc.groupColor === c.groupColor && gc.type === 'property');
+                const ownsAll = groupProps.every(gc => gc.ownerId === p.id);
                 const noneMortgaged = groupProps.every(gc => !gc.isMortgaged);
                 const minLevel = groupProps.length > 0 ? Math.min(...groupProps.map(gc => gc.level)) : 0;
 
-                if (!noneMortgaged) {
+                if (!ownsAll) {
+                    logAction(room, `Для улучшения нужно собрать весь цвет: ${c.groupColor}`);
+                } else if (!noneMortgaged) {
                     logAction(room, `Нельзя строить, пока в группе есть заложенные карточки!`);
                 } else if (c.level > minLevel) {
                     logAction(room, `Нужно строить равномерно! Сначала улучшите другие карточки цвета ${c.groupColor}`);
                 } else {
-                    const upgradeCost = c.buildCost ?? c.price! * 0.5;
+                    const upgradeCost = c.buildCost ?? (c.price ?? 0) * 0.5;
                     if (p.balance >= upgradeCost) {
                         p.balance -= upgradeCost;
                         c.level += 1;
