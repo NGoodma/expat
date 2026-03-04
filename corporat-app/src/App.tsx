@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import './index.css';
 
 // Type definitions
@@ -393,16 +393,18 @@ const App: React.FC = () => {
         };
     }, [roomId]);
 
+    const handleGameStart = useCallback((room: GameRoom, id: string) => {
+        setMyIdSynced(id);
+        setRoomId(room.id);
+        setPlayers(room.players);
+        setVisualPlayers(room.players);
+        setCells(room.cells);
+        setTurnIndex(room.turnIndex);
+        setRoomState('playing');
+    }, []);
+
     if (roomState === 'lobby') {
-        return <Lobby onGameStart={(room, id) => {
-            setMyIdSynced(id);
-            setRoomId(room.id);
-            setPlayers(room.players);
-            setVisualPlayers(room.players);
-            setCells(room.cells);
-            setTurnIndex(room.turnIndex);
-            setRoomState('playing');
-        }} />;
+        return <Lobby onGameStart={handleGameStart} />;
     }
 
     if (winner) {

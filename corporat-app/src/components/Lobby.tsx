@@ -66,11 +66,11 @@ const Lobby: React.FC<LobbyProps> = ({ onGameStart }) => {
     const [room, setRoom] = useState<GameRoom | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [connected, setConnected] = useState(socket.connected);
     const playerId = getOrCreatePlayerId();
 
     // ── Auto-rejoin on mount if a session was saved ──────────────────────────
     useEffect(() => {
-        socket.connect();
         const savedCode = getSavedSessionCode();
 
         const handleRoomUpdate = (updatedRoom: GameRoom) => {
@@ -88,50 +88,66 @@ const Lobby: React.FC<LobbyProps> = ({ onGameStart }) => {
             }
         };
 
-        socket.on('room_update', handleRoomUpdate);
+        const handleDisconnect = () => setConnected(false);
+        const handleConnectError = () => setConnected(false);
 
-        // Try to rejoin a saved session
+        socket.on('room_update', handleRoomUpdate);
+        socket.on('disconnect', handleDisconnect);
+        socket.on('connect_error', handleConnectError);
+
+        // Rejoin only if socket is ALREADY connected (otherwise the 'connect'
+        // handler in the second useEffect will send rejoin_room on connect).
         if (savedCode) {
             setView('rejoining');
-            socket.emit('rejoin_room', { code: savedCode, playerId }, (res: any) => {
-                if (!res.success) {
-                    // Room gone — clear saved session and go home
-                    clearSession();
-                    setError('Сессия устарела. Создайте новую комнату.');
-                    setView('home');
-                }
-                // On success room_update will fire automatically
-            });
+            if (socket.connected) {
+                socket.timeout(7000).emit('rejoin_room', { code: savedCode, playerId }, (err: Error | null, res: any) => {
+                    if (err || !res.success) {
+                        clearSession();
+                        setError('Сессия устарела. Создайте новую комнату.');
+                        setView('home');
+                    }
+                });
+            }
         }
 
-        return () => { socket.off('room_update', handleRoomUpdate); };
+        return () => {
+            socket.off('room_update', handleRoomUpdate);
+            socket.off('disconnect', handleDisconnect);
+            socket.off('connect_error', handleConnectError);
+        };
     }, [onGameStart, playerId]);
 
-    // ── Socket reconnect: re-emit rejoin_room ────────────────────────────────
+    // ── Socket connect: update state + re-emit rejoin_room if needed ────────
     useEffect(() => {
-        const handleReconnect = () => {
+        const handleConnect = () => {
+            setConnected(true);
             const savedCode = getSavedSessionCode();
             if (savedCode) {
-                socket.emit('rejoin_room', { code: savedCode, playerId }, (res: any) => {
-                    if (!res.success) {
+                socket.timeout(7000).emit('rejoin_room', { code: savedCode, playerId }, (err: Error | null, res: any) => {
+                    if (err || !res.success) {
                         clearSession();
                         setView('home');
                     }
                 });
             }
         };
-        socket.on('connect', handleReconnect);
-        return () => { socket.off('connect', handleReconnect); };
+        socket.on('connect', handleConnect);
+        return () => { socket.off('connect', handleConnect); };
     }, [playerId]);
 
     const handleCreateRoom = () => {
         if (!name) return setError('Введите ваше имя');
+        if (!socket.connected) return setError('Нет связи с сервером. Проверьте подключение.');
         setLoading(true);
         setError('');
-        socket.emit('create_room',
+        socket.timeout(7000).emit('create_room',
             { name, icon: selectedPalette.icon, color: selectedPalette.value, playerId },
-            (res: any) => {
+            (err: Error | null, res: any) => {
                 setLoading(false);
+                if (err) {
+                    setError('Сервер не отвечает. Попробуйте ещё раз.');
+                    return;
+                }
                 if (res.success) {
                     setRoomCode(res.roomCode);
                     saveSession(res.roomCode);
@@ -146,12 +162,17 @@ const Lobby: React.FC<LobbyProps> = ({ onGameStart }) => {
     const handleJoinRoom = () => {
         if (!name) return setError('Введите ваше имя');
         if (!roomCode) return setError('Введите код комнаты');
+        if (!socket.connected) return setError('Нет связи с сервером. Проверьте подключение.');
         setLoading(true);
         setError('');
-        socket.emit('join_room',
+        socket.timeout(7000).emit('join_room',
             { code: roomCode, name, icon: selectedPalette.icon, color: selectedPalette.value, playerId },
-            (res: any) => {
+            (err: Error | null, res: any) => {
                 setLoading(false);
+                if (err) {
+                    setError('Сервер не отвечает. Попробуйте ещё раз.');
+                    return;
+                }
                 if (res.success) {
                     saveSession(roomCode);
                     setView('waiting');
@@ -189,7 +210,15 @@ const Lobby: React.FC<LobbyProps> = ({ onGameStart }) => {
         return (
             <div className="app-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                 <div className="glass-panel" style={{ padding: '32px', textAlign: 'center' }}>
-                    <p style={{ fontSize: '20px', fontWeight: 'bold' }}>🔄 Переподключение к игре…</p>
+                    {connected ? (
+                        <p style={{ fontSize: '20px', fontWeight: 'bold' }}>🔄 Переподключение к игре…</p>
+                    ) : (
+                        <>
+                            <p style={{ fontSize: '20px', fontWeight: 'bold' }}>⚠️ Нет связи с сервером</p>
+                            <p style={{ color: 'var(--text-muted)', marginBottom: '16px' }}>Проверьте подключение и попробуйте снова.</p>
+                            <button className="action-btn" onClick={() => { clearSession(); setView('home'); }} style={{ background: '#eee', color: '#333' }}>На главную</button>
+                        </>
+                    )}
                 </div>
             </div>
         );
@@ -302,15 +331,20 @@ const Lobby: React.FC<LobbyProps> = ({ onGameStart }) => {
                 <h1 style={{ fontSize: '42px', marginBottom: '8px', color: 'var(--primary-glow)', textShadow: '2px 2px 0px #000', WebkitTextStroke: '2px black' }}>ЭКСПАТ</h1>
                 <p style={{ marginBottom: '24px', fontSize: '18px', fontWeight: 'bold' }}>Мультиплеер</p>
 
+                {/* Connection status */}
+                <div style={{ marginBottom: '12px', fontSize: '12px', fontWeight: 'bold', color: connected ? 'var(--success)' : '#f57c00' }}>
+                    {connected ? '🟢 Подключено' : '🟡 Подключение к серверу…'}
+                </div>
+
                 {error && <div style={{ background: 'var(--danger)', color: '#fff', padding: '8px', borderRadius: '4px', border: '3px solid #000', marginBottom: '16px' }}>{error}</div>}
 
                 {view === 'home' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         <input type="text" placeholder="Ваше Имя" value={name} onChange={e => setName(e.target.value)} style={{ padding: '12px', fontSize: '16px', border: '3px solid #000', borderRadius: '8px', fontWeight: 'bold' }} />
-                        <button className="action-btn" onClick={handleCreateRoom} disabled={loading} style={{ background: 'var(--primary-color)' }}>
+                        <button className="action-btn" onClick={handleCreateRoom} disabled={loading || !connected} style={{ background: 'var(--primary-color)', opacity: (!connected || loading) ? 0.6 : 1 }}>
                             {loading ? 'Создание...' : 'Создать Комнату'}
                         </button>
-                        <button className="action-btn" onClick={() => setView('join')} style={{ background: 'var(--secondary)' }}>Войти в Комнату</button>
+                        <button className="action-btn" onClick={() => setView('join')} disabled={!connected} style={{ background: 'var(--secondary)', opacity: !connected ? 0.6 : 1 }}>Войти в Комнату</button>
                     </div>
                 )}
 
