@@ -394,17 +394,23 @@ export function resolveEvent(room: GameRoom, playerId: string, payload: any) {
                 if (hasBranches) {
                     logAction(room, `Нельзя закладывать карточку, пока в этой группе есть филиалы!`);
                 } else {
-                    const val = c.price! * 0.5;
-                    p.balance += val;
-                    c.isMortgaged = true;
-                    logAction(room, `${p.name} закладывает ${c.name} (+${val / 1000}k ₾)`);
+                    const val = (c.price ?? 0) * 0.5;
+                    if (val <= 0) {
+                        logAction(room, `Ошибка: у объекта ${c.name} нет цены для залога.`);
+                    } else {
+                        p.balance += val;
+                        c.isMortgaged = true;
+                        logAction(room, `${p.name} закладывает ${c.name} (+${val / 1000}k ₾)`);
+                    }
                 }
             }
-        } else if (action === 'unmortgage' && cellId !== undefined && !room.activeEvent) {
+        } else if (action === 'unmortgage' && cellId !== undefined &&
+                   (!room.activeEvent || room.activeEvent.type === 'buy')) {
+            // Allow unmortgage both when idle and while a buy modal is open
             const c = room.cells.find(c => c.id === cellId);
             if (c && c.ownerId === p.id && c.isMortgaged) {
-                const val = Math.round(c.price! * 0.5 * 1.1);
-                if (p.balance >= val) {
+                const val = Math.round((c.price ?? 0) * 0.5 * 1.1);
+                if (val > 0 && p.balance >= val) {
                     p.balance -= val;
                     c.isMortgaged = false;
                     logAction(room, `${p.name} выкупает ${c.name} (-${val / 1000}k ₾)`);
@@ -526,12 +532,24 @@ export function resolveEvent(room: GameRoom, playerId: string, payload: any) {
         room.activeEvent = null;
 
     } else if (action === 'buy' && ev.type === 'buy') {
-        if (p.balance >= ev.cell.price) {
-            p.balance -= ev.cell.price;
+        const buyPrice = ev.cell.price ?? 0;
+        if (buyPrice <= 0) {
+            // Safeguard: cell without price — just end turn
+            logAction(room, `Ошибка: у объекта ${ev.cell.name} нет цены.`);
+            endTurn(room);
+        } else if (p.balance >= buyPrice) {
+            p.balance -= buyPrice;
             const targetCell = room.cells.find(c => c.id === ev.cell.id);
-            if (targetCell) targetCell.ownerId = p.id;
+            if (targetCell) {
+                targetCell.ownerId = p.id;
+            } else {
+                // Cell disappeared — refund and move on
+                p.balance += buyPrice;
+            }
             logAction(room, `${p.name} покупает ${ev.cell.name}!`);
             endTurn(room);
+        } else {
+            logAction(room, `${p.name}: недостаточно средств для покупки ${ev.cell.name}.`);
         }
 
     } else if (action === 'pass' && ev.type === 'buy') {

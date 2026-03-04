@@ -364,6 +364,12 @@ const App: React.FC = () => {
                 if (room.actionLog && room.actionLog.length > 0) {
                     setActionLog(room.actionLog.slice(-6).reverse());
                 }
+                // Close assets modal if it's no longer the user's turn
+                const updatedMyId = myIdRef.current;
+                const updatedIsUserTurn = room.players[room.turnIndex]?.id === updatedMyId;
+                if (!updatedIsUserTurn) {
+                    setShowAssetsModal(false);
+                }
                 // Refresh session TTL while the game is active
                 localStorage.setItem('corporat_roomTimestamp', String(Date.now()));
             }
@@ -987,16 +993,18 @@ const App: React.FC = () => {
                                     <p style={{ color: 'var(--text-muted)' }}>У вас пока нет активов.</p>
                                 )}
                                 {cells.filter(c => c.ownerId === myId && (c.type === 'property' || c.type === 'station' || c.type === 'utility')).map(c => {
-                                    const mortgageValue = (c.price || 0) * 0.5;
-                                    const unmortgageCost = Math.round(mortgageValue * 1.10);
-                                    const upgradeCost = c.buildCost ?? (c.price || 0) * 0.5;
-                                    const sellUpgradeGain = upgradeCost * 0.5;
+                                    const mortgageValue = (c.price ?? 0) * 0.5;
+                                    const unmortgageCost = mortgageValue > 0 ? Math.round(mortgageValue * 1.10) : 0;
+                                    const upgradeCost = c.buildCost ?? (c.price ?? 0) * 0.5;
+                                    const sellUpgradeGain = upgradeCost > 0 ? upgradeCost * 0.5 : 0;
 
-                                    const groupProps = cells.filter(gc => gc.groupColor === c.groupColor && gc.type === 'property');
-                                    const ownsAllGroup = groupProps.every(gc => gc.ownerId === myId);
-                                    const noneMortgaged = groupProps.every(gc => !gc.isMortgaged);
-                                    const minGroupLevel = Math.min(...groupProps.map(gc => gc.level));
-                                    const maxGroupLevel = Math.max(...groupProps.map(gc => gc.level));
+                                    const groupProps = c.type === 'property'
+                                        ? cells.filter(gc => gc.groupColor === c.groupColor && gc.type === 'property')
+                                        : [];
+                                    const ownsAllGroup = groupProps.length > 0 && groupProps.every(gc => gc.ownerId === myId);
+                                    const noneMortgaged = groupProps.length === 0 || groupProps.every(gc => !gc.isMortgaged);
+                                    const minGroupLevel = groupProps.length > 0 ? Math.min(...groupProps.map(gc => gc.level)) : 0;
+                                    const maxGroupLevel = groupProps.length > 0 ? Math.max(...groupProps.map(gc => gc.level)) : 0;
                                     const groupHasBranches = groupProps.some(gc => gc.level > 0);
                                     const myPlayer = players.find(p => p.id === myId);
 
