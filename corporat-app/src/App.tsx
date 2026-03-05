@@ -237,11 +237,11 @@ const App: React.FC = () => {
     const calculateRent = (cell: CellData) => {
         if (cell.isMortgaged) return 0;
         if (cell.type === 'station') {
-            const owned = cells.filter(c => c.type === 'station' && c.ownerId === cell.ownerId).length;
+            const owned = cells.filter(c => c.type === 'station' && c.ownerId === cell.ownerId && !c.isMortgaged).length;
             return 25000 * Math.pow(2, owned - 1);
         }
         if (cell.type === 'utility') {
-            const bothOwned = cells.filter(c => c.type === 'utility').every(c => c.ownerId === cell.ownerId);
+            const bothOwned = cells.filter(c => c.type === 'utility').every(c => c.ownerId === cell.ownerId && !c.isMortgaged);
             return bothOwned ? '🎲x10k' : '🎲x4k';
         }
         if (!cell.rentBase) return 0;
