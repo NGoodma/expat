@@ -755,7 +755,14 @@ const App: React.FC = () => {
                                                         {theirCells.map(c => (
                                                             <AssetChip key={c.id} cell={c}
                                                                 selected={tradeRequestPropertyIds.includes(c.id)}
-                                                                onToggle={() => toggleId(tradeRequestPropertyIds, setTradeRequestPropertyIds, c.id)}
+                                                                onToggle={() => {
+                                                                    if (!tradeTargetPlayerId && c.ownerId) {
+                                                                        setTradeTargetPlayerId(c.ownerId);
+                                                                        setTradeRequestPropertyIds([c.id]);
+                                                                    } else {
+                                                                        toggleId(tradeRequestPropertyIds, setTradeRequestPropertyIds, c.id);
+                                                                    }
+                                                                }}
                                                             />
                                                         ))}
                                                     </div>
