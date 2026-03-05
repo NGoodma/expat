@@ -80,9 +80,8 @@ const App: React.FC = () => {
     // Use a ref for myId so handleRoomUpdate always reads the current value (avoids stale closure)
     const myIdRef = React.useRef('');
     const animatingTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-    // Generation counter: each roll increments this so old Stage-2 timers don't
-    // accidentally clear isAnimating while a newer roll is already in flight.
-    const rollGenerationRef = React.useRef(0);
+    // Client-side failsafe: started at the moment of click, independent of room_update
+    const clickFailsafeRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const tg = window.Telegram?.WebApp;
 
@@ -171,7 +170,22 @@ const App: React.FC = () => {
 
         setIsRolling(true);
         orchestratorRef.current.isAnimating = true;
-        // Reset last roll visual so we can spin empty dice if we want
+
+        // Clear any previous failsafe
+        if (clickFailsafeRef.current) clearTimeout(clickFailsafeRef.current);
+        if (animatingTimeoutRef.current) clearTimeout(animatingTimeoutRef.current);
+
+        // CLIENT-SIDE failsafe: if no room_update resets us within 8 seconds, force reset.
+        // This catches: disconnects, deleted rooms, server crashes — anything that prevents
+        // a room_update from arriving.
+        clickFailsafeRef.current = setTimeout(() => {
+            if (orchestratorRef.current.isAnimating) {
+                console.warn('[App] Click failsafe triggered — no room_update received in 8s');
+                setIsRolling(false);
+                orchestratorRef.current.isAnimating = false;
+            }
+        }, 8000);
+
         socket.emit('roll_dice', { code: roomId });
     };
 
@@ -302,52 +316,46 @@ const App: React.FC = () => {
                 if (room.turnIndex !== undefined) setTurnIndex(room.turnIndex);
 
                 if (orchestratorRef.current.isAnimating) {
-                    // Use ref to avoid stale closure on myId
+                    // We clicked "roll dice" and are waiting for the result.
+                    // Cancel the click-failsafe since we got a room_update.
+                    if (clickFailsafeRef.current) {
+                        clearTimeout(clickFailsafeRef.current);
+                        clickFailsafeRef.current = null;
+                    }
+
                     const currentMyId = myIdRef.current;
-                    // wasSkipTurn is explicitly set by server; fallback: playerId !== mine
-                    const isSkipTurn = room.lastRoll?.wasSkipTurn === true
-                        || !room.lastRoll
-                        || room.lastRoll.playerId !== currentMyId;
+                    // Determine if this room_update contains OUR dice result
+                    const isOurRoll = room.lastRoll
+                        && !room.lastRoll.wasSkipTurn
+                        && room.lastRoll.playerId === currentMyId;
 
-                    if (isSkipTurn) {
-                        // No dice rolled — cancel animation immediately
-                        if (animatingTimeoutRef.current) clearTimeout(animatingTimeoutRef.current);
-                        setIsRolling(false);
-                        setLastRoll(null);
-                        setActiveEvent(room.activeEvent as any);
-                        orchestratorRef.current.isAnimating = false;
-                    } else {
-                        // Clear any previous failsafe
+                    if (isOurRoll) {
+                        // Clear any previous animation timer
                         if (animatingTimeoutRef.current) clearTimeout(animatingTimeoutRef.current);
 
-                        // Bump generation so any Stage‑2 timer from a prior roll knows it's stale.
-                        rollGenerationRef.current += 1;
-                        const gen = rollGenerationRef.current;
-
-                        // Stage 1: dice spin
-                        setTimeout(() => {
+                        // Stage 1: show dice spin for 1s, then reveal result
+                        // We capture room in closure — this is the authoritative state for THIS roll.
+                        const capturedRoom = room;
+                        animatingTimeoutRef.current = setTimeout(() => {
                             setIsRolling(false);
-                            setLastRoll(room.lastRoll || null);
+                            setLastRoll(capturedRoom.lastRoll || null);
 
-                            // Stage 2: pawn walk — only finalise if no newer roll has started
-                            setTimeout(() => {
-                                if (rollGenerationRef.current === gen) {
-                                    setActiveEvent(room.activeEvent as any);
-                                    orchestratorRef.current.isAnimating = false;
-                                }
+                            // Stage 2: let pawn walk, then show event modal
+                            animatingTimeoutRef.current = setTimeout(() => {
+                                setActiveEvent(capturedRoom.activeEvent as any);
+                                orchestratorRef.current.isAnimating = false;
+                                animatingTimeoutRef.current = null;
                             }, 1500);
                         }, 1000);
-
-                        // Failsafe: force-reset after 5s to prevent permanent lock
-                        animatingTimeoutRef.current = setTimeout(() => {
-                            if (orchestratorRef.current.isAnimating && rollGenerationRef.current === gen) {
-                                console.warn('[App] isAnimating failsafe triggered — resetting');
-                                setIsRolling(false);
-                                setLastRoll(room.lastRoll || null);
-                                setActiveEvent(room.activeEvent as any);
-                                orchestratorRef.current.isAnimating = false;
-                            }
-                        }, 5000);
+                    } else {
+                        // Got a room_update but it's not our roll result (e.g. bot move,
+                        // skip turn, or stale). Reset animation immediately.
+                        if (animatingTimeoutRef.current) clearTimeout(animatingTimeoutRef.current);
+                        setIsRolling(false);
+                        setLastRoll(room.lastRoll || null);
+                        setActiveEvent(room.activeEvent as any);
+                        orchestratorRef.current.isAnimating = false;
+                        animatingTimeoutRef.current = null;
                     }
                 } else {
                     // Not our animation — but always ensure dice aren't stuck spinning.

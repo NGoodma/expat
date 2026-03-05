@@ -284,20 +284,23 @@ io.on('connection', (socket: Socket) => {
             return;
         }
         const room = rooms.get(data.code);
-        if (room && room.state === 'playing') {
-            try {
-                rollDice(room, socket.id);
-                if ((room.state as string) === 'finished' && !(room as any)._deletionScheduled) {
-                    (room as any)._deletionScheduled = true;
-                    setTimeout(() => rooms.delete(data.code), 5 * 60 * 1000);
-                }
-                console.log(`[Socket] Broadcasting room_update for ${data.code}`);
-                io.to(data.code).emit('room_update', room);
-            } catch (err) {
-                console.error('[Socket] CRITICAL Error in rollDice:', err);
-                // In case of error, still emit room update to explicitly cancel the infinite dice spin on client
-                io.to(data.code).emit('room_update', room);
+        if (!room || room.state !== 'playing') {
+            // Room gone or not playing — tell client so it stops spinning
+            if (room) socket.emit('room_update', room);
+            return;
+        }
+        try {
+            rollDice(room, socket.id);
+            if ((room.state as string) === 'finished' && !(room as any)._deletionScheduled) {
+                (room as any)._deletionScheduled = true;
+                setTimeout(() => rooms.delete(data.code), 5 * 60 * 1000);
             }
+            console.log(`[Socket] Broadcasting room_update for ${data.code}`);
+            io.to(data.code).emit('room_update', room);
+        } catch (err) {
+            console.error('[Socket] CRITICAL Error in rollDice:', err);
+            // In case of error, still emit room update to explicitly cancel the infinite dice spin on client
+            io.to(data.code).emit('room_update', room);
         }
     });
 
@@ -309,18 +312,21 @@ io.on('connection', (socket: Socket) => {
             return;
         }
         const room = rooms.get(data.code);
-        if (room && room.state === 'playing') {
-            try {
-                resolveEvent(room, socket.id, data);
-                if ((room.state as string) === 'finished' && !(room as any)._deletionScheduled) {
-                    (room as any)._deletionScheduled = true;
-                    setTimeout(() => rooms.delete(data.code), 5 * 60 * 1000);
-                }
-                console.log(`[Socket] Broadcasting room_update for ${data.code} after resolve`);
-                io.to(data.code).emit('room_update', room);
-            } catch (err) {
-                console.error('[Socket] Error in resolveEvent:', err);
+        if (!room || room.state !== 'playing') {
+            if (room) socket.emit('room_update', room);
+            return;
+        }
+        try {
+            resolveEvent(room, socket.id, data);
+            if ((room.state as string) === 'finished' && !(room as any)._deletionScheduled) {
+                (room as any)._deletionScheduled = true;
+                setTimeout(() => rooms.delete(data.code), 5 * 60 * 1000);
             }
+            console.log(`[Socket] Broadcasting room_update for ${data.code} after resolve`);
+            io.to(data.code).emit('room_update', room);
+        } catch (err) {
+            console.error('[Socket] Error in resolveEvent:', err);
+            io.to(data.code).emit('room_update', room);
         }
     });
 
