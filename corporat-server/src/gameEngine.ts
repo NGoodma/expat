@@ -106,7 +106,7 @@ export function calculateRent(room: GameRoom, cell: CellData, diceTotal?: number
     if (cell.type === 'utility') {
         const bothOwned = room.cells
             .filter(c => c.type === 'utility')
-            .every(c => c.ownerId === cell.ownerId);
+            .every(c => c.ownerId === cell.ownerId && !c.isMortgaged);
         const multiplier = bothOwned ? 10000 : 4000;
         return multiplier * (diceTotal ?? 7);
     }
@@ -114,7 +114,7 @@ export function calculateRent(room: GameRoom, cell: CellData, diceTotal?: number
     // ── Station (Banks) ───────────────────────────────────────────────────────
     if (cell.type === 'station') {
         const stationsOwned = room.cells
-            .filter(c => c.type === 'station' && c.ownerId === cell.ownerId).length;
+            .filter(c => c.type === 'station' && c.ownerId === cell.ownerId && !c.isMortgaged).length;
         // 1→25k, 2→50k, 3→100k, 4→200k (doubles each time)
         return 25000 * Math.pow(2, stationsOwned - 1);
     }
