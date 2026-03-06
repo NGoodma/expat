@@ -174,6 +174,7 @@ const App: React.FC = () => {
         // Clear any previous failsafe
         if (clickFailsafeRef.current) clearTimeout(clickFailsafeRef.current);
         if (animatingTimeoutRef.current) clearTimeout(animatingTimeoutRef.current);
+        animatingTimeoutRef.current = null;
 
         // CLIENT-SIDE failsafe: if no room_update resets us within 8 seconds, force reset.
         // This catches: disconnects, deleted rooms, server crashes — anything that prevents
@@ -330,8 +331,10 @@ const App: React.FC = () => {
                         && room.lastRoll.playerId === currentMyId;
 
                     if (isOurRoll) {
-                        // Clear any previous animation timer
-                        if (animatingTimeoutRef.current) clearTimeout(animatingTimeoutRef.current);
+                        // Only start the animation timer once per roll.
+                        // Subsequent room_updates (e.g. from bot actions) must NOT
+                        // restart it, otherwise the dice spin indefinitely.
+                        if (!animatingTimeoutRef.current) {
 
                         // Stage 1: show dice spin for 1s, then reveal result
                         // We capture room in closure — this is the authoritative state for THIS roll.
@@ -347,6 +350,7 @@ const App: React.FC = () => {
                                 animatingTimeoutRef.current = null;
                             }, 1500);
                         }, 1000);
+                        }
                     } else {
                         // Got a room_update but it's not our roll result (e.g. bot move,
                         // skip turn, or stale). Reset animation immediately.

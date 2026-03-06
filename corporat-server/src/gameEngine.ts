@@ -894,6 +894,11 @@ export function botTick(room: GameRoom): boolean {
             .sort((a, b) => (b.buildCost ?? 0) - (a.buildCost ?? 0))[0];
         if (upgradedCell) {
             resolveEvent(room, bot.id, { action: 'sell_upgrade', cellId: upgradedCell.id });
+            // Recovered from debt — end turn (bot already rolled this turn)
+            if (bot.balance >= 0) {
+                bot.debtTo = null;
+                endTurn(room);
+            }
             return true;
         }
         // 2. Mortgage cheapest unmortgaged property with no group upgrades
@@ -906,6 +911,11 @@ export function botTick(room: GameRoom): boolean {
             .sort((a, b) => (a.price ?? 0) - (b.price ?? 0))[0];
         if (mortgageCandidate) {
             resolveEvent(room, bot.id, { action: 'mortgage', cellId: mortgageCandidate.id });
+            // Recovered from debt — end turn (bot already rolled this turn)
+            if (bot.balance >= 0) {
+                bot.debtTo = null;
+                endTurn(room);
+            }
             return true;
         }
         // Nothing else to sell — declare bankruptcy
