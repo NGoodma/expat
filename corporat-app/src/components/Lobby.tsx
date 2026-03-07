@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import socket from '../socket';
+import React, { useState, useEffect, useRef } from 'react';
+import socket, { SERVER_URL } from '../socket';
 import type { GameRoom } from '../types';
 
 interface LobbyProps {
@@ -67,7 +67,35 @@ const Lobby: React.FC<LobbyProps> = ({ onGameStart }) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [connected, setConnected] = useState(socket.connected);
+    const [connectingSeconds, setConnectingSeconds] = useState(0);
+    const connectingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const playerId = getOrCreatePlayerId();
+
+    // Pre-warm the server via HTTP so it starts waking up as early as possible
+    useEffect(() => {
+        if (!socket.connected) {
+            fetch(`${SERVER_URL}/health`).catch(() => {/* ignore — just a wake-up ping */});
+        }
+    }, []);
+
+    // Track how many seconds we've been waiting to connect
+    useEffect(() => {
+        if (!connected) {
+            setConnectingSeconds(0);
+            connectingTimerRef.current = setInterval(() => {
+                setConnectingSeconds(s => s + 1);
+            }, 1000);
+        } else {
+            if (connectingTimerRef.current) {
+                clearInterval(connectingTimerRef.current);
+                connectingTimerRef.current = null;
+            }
+            setConnectingSeconds(0);
+        }
+        return () => {
+            if (connectingTimerRef.current) clearInterval(connectingTimerRef.current);
+        };
+    }, [connected]);
 
     // ── Auto-rejoin on mount if a session was saved ──────────────────────────
     useEffect(() => {
@@ -332,9 +360,22 @@ const Lobby: React.FC<LobbyProps> = ({ onGameStart }) => {
                 <p style={{ marginBottom: '24px', fontSize: '18px', fontWeight: 'bold' }}>Мультиплеер</p>
 
                 {/* Connection status */}
-                <div style={{ marginBottom: '12px', fontSize: '12px', fontWeight: 'bold', color: connected ? 'var(--success)' : '#f57c00' }}>
-                    {connected ? '🟢 Подключено' : '🟡 Подключение к серверу…'}
-                </div>
+                {connected ? (
+                    <div style={{ marginBottom: '12px', fontSize: '12px', fontWeight: 'bold', color: 'var(--success)' }}>
+                        🟢 Подключено
+                    </div>
+                ) : (
+                    <div style={{ marginBottom: '16px', padding: '12px', background: 'rgba(255,152,0,0.12)', border: '2px solid #f57c00', borderRadius: '8px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#e65100', marginBottom: '4px' }}>
+                            🟡 Подключение к серверу… {connectingSeconds > 0 ? `${connectingSeconds}с` : ''}
+                        </div>
+                        {connectingSeconds >= 6 && (
+                            <div style={{ fontSize: '12px', color: '#795548', lineHeight: '1.4' }}>
+                                Сервер просыпается после простоя — обычно это занимает&nbsp;до&nbsp;30–60&nbsp;секунд. Пожалуйста, подождите.
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {error && <div style={{ background: 'var(--danger)', color: '#fff', padding: '8px', borderRadius: '4px', border: '3px solid #000', marginBottom: '16px' }}>{error}</div>}
 

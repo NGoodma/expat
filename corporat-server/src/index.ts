@@ -8,6 +8,8 @@ import { rollDice, resolveEvent, botTick, logAction, endTurn, removePlayerFromAu
 const app = express();
 app.use(cors());
 
+app.get('/health', (_req, res) => { res.json({ ok: true }); });
+
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
     cors: {
