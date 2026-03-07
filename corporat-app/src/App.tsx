@@ -1044,7 +1044,7 @@ const App: React.FC = () => {
                                     return (
                                         <div key={c.id} style={{ display: 'flex', flexDirection: 'column', padding: '8px', border: '1px solid #ccc', borderRadius: '8px', background: c.isMortgaged ? '#fdd' : '#fff' }}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <span style={{ fontWeight: 'bold', color: c.groupColor }}>{c.name} {c.isMortgaged ? '(В залоге)' : ''}</span>
+                                                <span style={{ fontWeight: 'bold', color: c.groupColor, textShadow: '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000' }}>{c.name} {c.isMortgaged ? '(В залоге)' : ''}</span>
                                                 <span style={{ fontSize: '12px' }}>Ур. {c.level}</span>
                                             </div>
 
