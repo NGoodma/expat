@@ -5,15 +5,28 @@ import cors from 'cors';
 import { GameRoom, Player, getInitialCells } from './models';
 import { rollDice, resolveEvent, botTick, logAction, endTurn, removePlayerFromAuction } from './gameEngine';
 
+// ---- Structured logger ----
+function log(level: 'INFO' | 'WARN' | 'ERROR', tag: string, msg: string, extra?: Record<string, unknown>) {
+    const ts = new Date().toISOString();
+    const suffix = extra ? ' ' + JSON.stringify(extra) : '';
+    const line = `${ts} [${level}] [${tag}] ${msg}${suffix}`;
+    if (level === 'ERROR') console.error(line);
+    else if (level === 'WARN') console.warn(line);
+    else console.log(line);
+}
+
+const rawOrigins = process.env.CLIENT_ORIGIN?.split(',').map(origin => origin.trim()).filter(Boolean);
+const corsOrigin = rawOrigins && rawOrigins.length > 0 ? rawOrigins : '*';
+
 const app = express();
-app.use(cors());
+app.use(cors({ origin: corsOrigin }));
 
 app.get('/health', (_req, res) => { res.json({ ok: true }); });
 
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
     cors: {
-        origin: "*",
+        origin: corsOrigin,
         methods: ["GET", "POST"]
     }
 });
@@ -22,11 +35,15 @@ const rooms = new Map<string, GameRoom>();
 
 // ---- Per-socket rate limiting ----
 const rateLimits = new Map<string, number>(); // socketId → last-event timestamp (ms)
+const chatRateLimits = new Map<string, number>(); // socketId → last-chat timestamp (ms)
 
 function isRateLimited(socketId: string, minIntervalMs = 300): boolean {
     const last = rateLimits.get(socketId) ?? 0;
     const now = Date.now();
-    if (now - last < minIntervalMs) return true;
+    if (now - last < minIntervalMs) {
+        log('WARN', 'RateLimit', 'hit', { socketId, gapMs: now - last });
+        return true;
+    }
     rateLimits.set(socketId, now);
     return false;
 }
@@ -46,12 +63,25 @@ setInterval(() => {
     });
 }, 500);
 
+// Periodic memory + rooms stats — useful for diagnosing Render limits
+setInterval(() => {
+    const mem = process.memoryUsage();
+    const playingRooms = [...rooms.values()].filter(r => r.state === 'playing').length;
+    log('INFO', 'Stats', 'heartbeat', {
+        rss: `${Math.round(mem.rss / 1024 / 1024)}MB`,
+        heap: `${Math.round(mem.heapUsed / 1024 / 1024)}/${Math.round(mem.heapTotal / 1024 / 1024)}MB`,
+        rooms: rooms.size,
+        playing: playingRooms,
+        sockets: io.engine.clientsCount,
+    });
+}, 60_000);
+
 const generateRoomCode = () => {
     return Math.floor(1000 + Math.random() * 9000).toString();
 };
 
 io.on('connection', (socket: Socket) => {
-    console.log(`User connected: ${socket.id}`);
+    log('INFO', 'Socket', 'connected', { socketId: socket.id, transport: socket.conn.transport.name, rooms: rooms.size });
 
     // Colour palette mirrors the client PALETTE array (same order)
     const ALL_COLORS = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#1E88E5', '#8E24AA', '#F06292', '#00ACC1', '#7CB342', '#6D4C41'];
@@ -332,9 +362,28 @@ io.on('connection', (socket: Socket) => {
         }
     });
 
-    socket.on('disconnect', () => {
+    socket.on('chat_message', (data: { code: string; text: string }) => {
+        const room = rooms.get(data.code);
+        if (!room || room.state !== 'playing') return;
+        const player = room.players.find(p => p.id === socket.id);
+        if (!player) return;
+        const last = chatRateLimits.get(socket.id) ?? 0;
+        if (Date.now() - last < 1000) return;
+        chatRateLimits.set(socket.id, Date.now());
+        const text = String(data.text || '').trim().slice(0, 200);
+        if (!text) return;
+        io.to(data.code).emit('chat_broadcast', {
+            playerId: player.id,
+            playerName: player.name,
+            playerColor: player.color,
+            text,
+        });
+    });
+
+    socket.on('disconnect', (reason) => {
         rateLimits.delete(socket.id);
-        console.log(`User disconnected: ${socket.id}`);
+        chatRateLimits.delete(socket.id);
+        log('INFO', 'Socket', 'disconnected', { socketId: socket.id, reason });
         for (const [code, room] of rooms.entries()) {
             const pIndex = room.players.findIndex(p => p.id === socket.id);
             if (pIndex !== -1) {
@@ -392,8 +441,41 @@ io.on('connection', (socket: Socket) => {
     });
 });
 
+// ---- Graceful shutdown: notify players before Render restarts the instance ----
+function gracefulShutdown(signal: string) {
+    log('WARN', 'Process', `${signal} received — shutting down`);
+    let notified = 0;
+    rooms.forEach((room, code) => {
+        if (room.state === 'playing') {
+            io.to(code).emit('server_notice', {
+                type: 'shutdown',
+                message: 'Сервер перезапускается. Подождите несколько секунд — переподключение произойдёт автоматически.',
+            });
+            notified++;
+        }
+    });
+    log('INFO', 'Process', 'shutdown notice sent', { notifiedRooms: notified });
+    // Give Socket.IO time to flush messages before exit
+    setTimeout(() => process.exit(0), 1500);
+}
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT',  () => gracefulShutdown('SIGINT'));
+
+process.on('uncaughtException', (err) => {
+    log('ERROR', 'Process', 'uncaughtException', { message: err.message, stack: err.stack });
+});
+process.on('unhandledRejection', (reason) => {
+    log('ERROR', 'Process', 'unhandledRejection', { reason: String(reason) });
+});
+
 const PORT = process.env.PORT || 8081;
 httpServer.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+    const mem = process.memoryUsage();
+    log('INFO', 'Server', 'started', {
+        port: PORT,
+        node: process.version,
+        rss: `${Math.round(mem.rss / 1024 / 1024)}MB`,
+        corsOrigin,
+    });
 });
 

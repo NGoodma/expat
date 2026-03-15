@@ -15,6 +15,11 @@ import { getInitialCells, BOARD_SIZE } from './types';
 import Lobby from './components/Lobby';
 import socket from './socket';
 
+// Feed entry: game log line or player chat message
+type FeedEntry =
+    | { kind: 'log'; text: string; id: number }
+    | { kind: 'chat'; text: string; id: number; playerId: string; playerName: string; playerColor: string };
+
 const App: React.FC = () => {
     // Multiplayer State
     const [roomState, setRoomState] = useState<'lobby' | 'playing'>('lobby');
@@ -29,7 +34,8 @@ const App: React.FC = () => {
     const [cells, setCells] = useState<CellData[]>(getInitialCells());
 
     // UI State
-    const [actionLog, setActionLog] = useState<string[]>(['Игра началась! Ваш ход.']);
+    const [feedEntries, setFeedEntries] = useState<FeedEntry[]>([]);
+    const [chatInput, setChatInput] = useState('');
     const [lastRoll, setLastRoll] = useState<{ r1: number, r2: number, playerId: string, intermediatePosition?: number } | null>(null);
     const [isRolling, setIsRolling] = useState(false);
 
@@ -57,6 +63,10 @@ const App: React.FC = () => {
     // Assets Modal
     const [showAssetsModal, setShowAssetsModal] = useState<boolean>(false);
 
+    // Connection status
+    const [connectionStatus, setConnectionStatus] = useState<'connected' | 'reconnecting'>('connected');
+    const [serverNotice, setServerNotice] = useState<string | null>(null);
+
     // Trade State
     const [tradeOfferAmount,   setTradeOfferAmount]   = useState<number>(0);
     const [tradeRequestAmount, setTradeRequestAmount] = useState<number>(0);
@@ -72,6 +82,17 @@ const App: React.FC = () => {
         setTradeTargetPlayerId('');
     };
 
+    const sendChatMessage = () => {
+        const text = chatInput.trim().slice(0, 200);
+        if (!text || !roomId) return;
+        socket.emit('chat_message', { code: roomId, text });
+        setChatInput('');
+    };
+
+    useEffect(() => {
+        feedEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [feedEntries]);
+
     const toggleId = (list: number[], setList: (v: number[]) => void, id: number) => {
         setList(list.includes(id) ? list.filter(x => x !== id) : list.length < 3 ? [...list, id] : list);
     };
@@ -82,6 +103,9 @@ const App: React.FC = () => {
     const animatingTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
     // Client-side failsafe: started at the moment of click, independent of room_update
     const clickFailsafeRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    const feedEndRef = React.useRef<HTMLDivElement>(null);
+    const feedIdRef = React.useRef(0);
+    const lastLogCountRef = React.useRef(0);
 
     const tg = window.Telegram?.WebApp;
 
@@ -373,8 +397,13 @@ const App: React.FC = () => {
                 }
 
                 if (room.auctionState !== undefined) setAuctionState(room.auctionState as any);
-                if (room.actionLog && room.actionLog.length > 0) {
-                    setActionLog(room.actionLog.slice(-6).reverse());
+                if (room.actionLog && room.actionLog.length > lastLogCountRef.current) {
+                    const newEntries = room.actionLog.slice(lastLogCountRef.current);
+                    lastLogCountRef.current = room.actionLog.length;
+                    setFeedEntries(prev => [
+                        ...prev,
+                        ...newEntries.map(text => ({ kind: 'log' as const, text, id: feedIdRef.current++ }))
+                    ]);
                 }
                 // Close assets modal if it's no longer the user's turn
                 const updatedMyId = myIdRef.current;
@@ -388,26 +417,59 @@ const App: React.FC = () => {
         };
 
         const handleReconnect = () => {
-            console.log('[App] Socket reconnected silently! Re-joining room...');
+            console.log('[App] Socket reconnected! Re-joining room...');
+            setConnectionStatus('connected');
             if (roomId) {
                 const playerId = localStorage.getItem('corporat_playerId');
                 if (playerId) {
                     socket.emit('rejoin_room', { code: roomId, playerId }, (res: any) => {
                         if (res.success && socket.id) {
-                            console.log('[App] Rejoin successful. Updating myId to new socket.id:', socket.id);
+                            console.log('[App] Rejoin successful. New socket.id:', socket.id);
                             setMyIdSynced(socket.id);
+                        } else {
+                            // Server restarted and lost the room — go back to lobby
+                            console.warn('[App] Rejoin failed — room was lost (server restart?).');
+                            setServerNotice('Сервер перезапустился, комната потеряна. Начните новую игру.');
+                            setRoomState('lobby');
                         }
                     });
                 }
             }
         };
 
+        const handleDisconnect = (reason: string) => {
+            console.warn('[App] Socket disconnected. Reason:', reason);
+            setConnectionStatus('reconnecting');
+        };
+
+        const handleServerNotice = (data: { type: string; message: string }) => {
+            console.warn('[App] Server notice received:', data);
+            setServerNotice(data.message);
+        };
+
+        const handleChatBroadcast = (data: { playerId: string; playerName: string; playerColor: string; text: string }) => {
+            setFeedEntries(prev => [...prev, {
+                kind: 'chat' as const,
+                text: data.text,
+                id: feedIdRef.current++,
+                playerId: data.playerId,
+                playerName: data.playerName,
+                playerColor: data.playerColor,
+            }]);
+        };
+
         socket.on('room_update', handleRoomUpdate);
         socket.on('connect', handleReconnect);
+        socket.on('disconnect', handleDisconnect);
+        socket.on('server_notice', handleServerNotice);
+        socket.on('chat_broadcast', handleChatBroadcast);
 
         return () => {
             socket.off('room_update', handleRoomUpdate);
             socket.off('connect', handleReconnect);
+            socket.off('disconnect', handleDisconnect);
+            socket.off('server_notice', handleServerNotice);
+            socket.off('chat_broadcast', handleChatBroadcast);
         };
     }, [roomId]);
 
@@ -419,10 +481,34 @@ const App: React.FC = () => {
         setCells(room.cells);
         setTurnIndex(room.turnIndex);
         setRoomState('playing');
+        setFeedEntries([]);
+        setChatInput('');
+        lastLogCountRef.current = 0;
+        feedIdRef.current = 0;
     }, []);
 
+    const connectionBanner = (connectionStatus === 'reconnecting' || serverNotice) ? (
+        <div style={{
+            position: 'fixed', top: 0, left: 0, right: 0,
+            background: serverNotice ? '#c0392b' : '#e67e22',
+            color: '#fff', padding: '10px 16px', textAlign: 'center',
+            fontSize: '14px', fontWeight: 'bold', zIndex: 9999,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+        }}>
+            {serverNotice
+                ? <>{serverNotice} <button onClick={() => setServerNotice(null)} style={{ marginLeft: '8px', background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '18px', lineHeight: '1' }}>✕</button></>
+                : '⏳ Переподключение к серверу…'
+            }
+        </div>
+    ) : null;
+
     if (roomState === 'lobby') {
-        return <Lobby onGameStart={handleGameStart} />;
+        return (
+            <>
+                {connectionBanner}
+                <Lobby onGameStart={handleGameStart} />
+            </>
+        );
     }
 
     if (winner) {
@@ -467,6 +553,7 @@ const App: React.FC = () => {
 
     return (
         <div className="app-container">
+            {connectionBanner}
             <header className="glass-panel" style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', minHeight: '34px', alignItems: 'center' }}>
                     <h3 style={{ margin: 0, opacity: 0.8 }}>Игроки</h3>
@@ -585,34 +672,6 @@ const App: React.FC = () => {
 
 
 
-                        {/* Action log feed inside board-center */}
-                        <div style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '2px',
-                            marginTop: '6px',
-                            width: '100%',
-                            maxHeight: '150px',
-                            overflowY: 'auto',
-                            textAlign: 'left',
-                        }}>
-                            {actionLog.map((entry, i) => (
-                                <div key={i} style={{
-                                    fontSize: i === 0 ? '13px' : '11px',
-                                    fontWeight: i === 0 ? 'bold' : 'normal',
-                                    opacity: Math.max(1 - i * 0.2, 0.2),
-                                    padding: '2px 6px',
-                                    borderRadius: '4px',
-                                    background: i === 0 ? 'rgba(0,0,0,0.07)' : 'transparent',
-                                    color: 'var(--text-main)',
-                                    lineHeight: '1.4',
-                                    whiteSpace: 'normal',
-                                    wordBreak: 'break-word',
-                                }}>
-                                    {entry}
-                                </div>
-                            ))}
-                        </div>
                     </div>{/* /board-center */}
 
                     {cells.map((cell) => {
@@ -677,6 +736,122 @@ const App: React.FC = () => {
                 </div>{/* /board */}
             </main>
 
+            {/* Chat + Log feed panel */}
+            <div className="comic-panel" style={{
+                display: 'flex',
+                flexDirection: 'column',
+                flexShrink: 0,
+                height: '170px',
+                padding: '6px 8px 6px',
+                gap: '4px',
+            }}>
+                {/* Scrollable feed */}
+                <div style={{
+                    flex: 1,
+                    overflowY: 'auto',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '3px',
+                    textAlign: 'left',
+                    minHeight: 0,
+                }}>
+                    {feedEntries.length === 0 && (
+                        <div style={{ fontSize: '11px', fontStyle: 'italic', opacity: 0.4, padding: '2px 4px' }}>Лог игры и чат появятся здесь…</div>
+                    )}
+                    {feedEntries.map(entry => entry.kind === 'log' ? (
+                        <div key={entry.id} style={{
+                            fontSize: '11px',
+                            fontStyle: 'italic',
+                            opacity: 0.65,
+                            padding: '1px 4px',
+                            color: 'var(--text-muted)',
+                            lineHeight: '1.4',
+                            wordBreak: 'break-word',
+                        }}>
+                            {entry.text}
+                        </div>
+                    ) : (
+                        <div key={entry.id} style={{
+                            padding: '4px 8px',
+                            borderRadius: '6px',
+                            borderLeft: `4px solid ${entry.playerColor}`,
+                            background: 'rgba(255,255,255,0.65)',
+                            wordBreak: 'break-word',
+                            flexShrink: 0,
+                        }}>
+                            <div style={{ marginBottom: '2px' }}>
+                                {(() => {
+                                    const hex = entry.playerColor.replace('#', '');
+                                    const r = parseInt(hex.substr(0, 2), 16) / 255;
+                                    const g = parseInt(hex.substr(2, 2), 16) / 255;
+                                    const b = parseInt(hex.substr(4, 2), 16) / 255;
+                                    const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+                                    return (
+                                        <span style={{
+                                            display: 'inline-block',
+                                            background: lum > 0.5 ? '#1a1a1a' : entry.playerColor,
+                                            color: lum > 0.5 ? entry.playerColor : '#fff',
+                                            borderRadius: '4px',
+                                            padding: '1px 5px',
+                                            fontSize: '10px',
+                                            fontWeight: 'bold',
+                                            letterSpacing: '0.3px',
+                                        }}>
+                                            {entry.playerName}
+                                        </span>
+                                    );
+                                })()}
+                            </div>
+                            <div style={{ fontSize: '13px', color: 'var(--text-main)', lineHeight: '1.4' }}>
+                                {entry.text}
+                            </div>
+                        </div>
+                    ))}
+                    <div ref={feedEndRef} />
+                </div>
+                {/* Chat input row */}
+                <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+                    <input
+                        type="text"
+                        value={chatInput}
+                        onChange={e => setChatInput(e.target.value.slice(0, 200))}
+                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); sendChatMessage(); } }}
+                        placeholder="Сообщение..."
+                        style={{
+                            flex: 1,
+                            padding: '6px 8px',
+                            border: '2px solid var(--border-color)',
+                            borderRadius: '6px',
+                            background: 'rgba(255,255,255,0.85)',
+                            fontSize: '12px',
+                            color: 'var(--text-main)',
+                            minWidth: 0,
+                            outline: 'none',
+                            fontFamily: 'var(--font-family)',
+                        }}
+                    />
+                    <button
+                        onClick={sendChatMessage}
+                        disabled={!chatInput.trim()}
+                        style={{
+                            padding: '6px 12px',
+                            border: '2px solid var(--border-color)',
+                            borderRadius: '6px',
+                            background: 'var(--primary-color)',
+                            color: '#111',
+                            fontWeight: 'bold',
+                            fontSize: '16px',
+                            cursor: chatInput.trim() ? 'pointer' : 'default',
+                            opacity: chatInput.trim() ? 1 : 0.45,
+                            flexShrink: 0,
+                            lineHeight: '1',
+                            minHeight: '36px',
+                        }}
+                    >
+                        ➤
+                    </button>
+                </div>
+            </div>
 
             {/* Event Modals — only shown to the targeted player */}
             {
