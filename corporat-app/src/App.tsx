@@ -105,6 +105,10 @@ const App: React.FC = () => {
     const feedEndRef = React.useRef<HTMLDivElement>(null);
     const feedIdRef = React.useRef(0);
 
+    const [keyboardHeight, setKeyboardHeight] = useState(0);
+    const initialVVHeight = React.useRef(
+        typeof window !== 'undefined' ? (window.visualViewport?.height ?? window.innerHeight) : 0
+    );
 
     const tg = window.Telegram?.WebApp;
 
@@ -114,6 +118,16 @@ const App: React.FC = () => {
             tg.ready();
         }
     }, [tg]);
+
+    useEffect(() => {
+        const vv = window.visualViewport;
+        if (!vv) return;
+        const handleResize = () => {
+            setKeyboardHeight(Math.max(0, initialVVHeight.current - vv.height));
+        };
+        vv.addEventListener('resize', handleResize);
+        return () => vv.removeEventListener('resize', handleResize);
+    }, []);
 
     // Animate visual players to catch up to real Server given players
     useEffect(() => {
@@ -542,7 +556,7 @@ const App: React.FC = () => {
     const isUserTurn = players[turnIndex]?.id === myId;
 
     return (
-        <div className="app-container">
+        <div className="app-container" style={keyboardHeight > 0 ? { height: `${initialVVHeight.current}px` } : undefined}>
             {connectionBanner}
             <header className="glass-panel" style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', minHeight: '34px', alignItems: 'center' }}>
@@ -734,6 +748,15 @@ const App: React.FC = () => {
                 height: '170px',
                 padding: '6px 8px 6px',
                 gap: '4px',
+                ...(keyboardHeight > 0 ? {
+                    position: 'fixed' as const,
+                    left: 0,
+                    right: 0,
+                    bottom: keyboardHeight,
+                    zIndex: 200,
+                    maxWidth: '1000px',
+                    margin: '0 auto',
+                } : {}),
             }}>
                 {/* Scrollable feed */}
                 <div style={{
