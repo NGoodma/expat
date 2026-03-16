@@ -277,6 +277,18 @@ io.on('connection', (socket: Socket) => {
                 doubleCount: 0
             };
             room.players.push(newBot as any);
+
+            // 1 bot → 🤖, 2+ bots → palette icon matching their color
+            const botsAfterAdd = room.players.filter((p: any) => p.isBot);
+            if (botsAfterAdd.length >= 2) {
+                botsAfterAdd.forEach((p: any) => {
+                    const idx = ALL_COLORS.indexOf(p.color);
+                    if (idx !== -1) p.icon = ALL_ICONS[idx];
+                });
+            } else {
+                botsAfterAdd.forEach((p: any) => { p.icon = '🤖'; });
+            }
+
             io.to(data.code).emit('room_update', room);
         }
     });
@@ -287,6 +299,9 @@ io.on('connection', (socket: Socket) => {
             const lastBotIndex = room.players.map(p => p.isBot).lastIndexOf(true);
             if (lastBotIndex !== -1) {
                 room.players.splice(lastBotIndex, 1);
+                // If only 1 bot remains, reset it back to 🤖
+                const remainingBots = room.players.filter((p: any) => p.isBot);
+                if (remainingBots.length === 1) remainingBots[0].icon = '🤖';
                 io.to(data.code).emit('room_update', room);
             }
         }
@@ -477,5 +492,26 @@ httpServer.listen(PORT, () => {
         rss: `${Math.round(mem.rss / 1024 / 1024)}MB`,
         corsOrigin,
     });
+
+    // ---- Keep-alive: prevent Render free-tier sleep ----
+    // Render sleeps after ~15 min of no *external* HTTP traffic — WebSocket doesn't count.
+    // Self-ping every 5 min with triple safety margin.
+    // RENDER_EXTERNAL_URL is set automatically by Render; RENDER_SERVICE_NAME is the fallback.
+    const selfUrl =
+        process.env.RENDER_EXTERNAL_URL ||
+        (process.env.RENDER_SERVICE_NAME ? `https://${process.env.RENDER_SERVICE_NAME}.onrender.com` : null);
+
+    if (selfUrl) {
+        const pingUrl = `${selfUrl}/health`;
+        const PING_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes — well under the 15-min sleep threshold
+        setInterval(() => {
+            fetch(pingUrl)
+                .then(r => log('INFO', 'KeepAlive', `ping ok (${r.status})`))
+                .catch((err: Error) => log('WARN', 'KeepAlive', 'ping failed', { error: err.message }));
+        }, PING_INTERVAL_MS);
+        log('INFO', 'KeepAlive', 'scheduled', { url: pingUrl, intervalMin: 5 });
+    } else {
+        log('INFO', 'KeepAlive', 'skipped (not on Render — set RENDER_EXTERNAL_URL to enable)');
+    }
 });
 

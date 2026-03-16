@@ -15,10 +15,9 @@ import { getInitialCells, BOARD_SIZE } from './types';
 import Lobby from './components/Lobby';
 import socket from './socket';
 
-// Feed entry: game log line or player chat message
+// Feed entry: player chat message
 type FeedEntry =
-    | { kind: 'log'; text: string; id: number }
-    | { kind: 'chat'; text: string; id: number; playerId: string; playerName: string; playerColor: string };
+    { kind: 'chat'; text: string; id: number; playerId: string; playerName: string; playerColor: string };
 
 const App: React.FC = () => {
     // Multiplayer State
@@ -105,7 +104,7 @@ const App: React.FC = () => {
     const clickFailsafeRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
     const feedEndRef = React.useRef<HTMLDivElement>(null);
     const feedIdRef = React.useRef(0);
-    const lastLogCountRef = React.useRef(0);
+
 
     const tg = window.Telegram?.WebApp;
 
@@ -397,14 +396,6 @@ const App: React.FC = () => {
                 }
 
                 if (room.auctionState !== undefined) setAuctionState(room.auctionState as any);
-                if (room.actionLog && room.actionLog.length > lastLogCountRef.current) {
-                    const newEntries = room.actionLog.slice(lastLogCountRef.current);
-                    lastLogCountRef.current = room.actionLog.length;
-                    setFeedEntries(prev => [
-                        ...prev,
-                        ...newEntries.map(text => ({ kind: 'log' as const, text, id: feedIdRef.current++ }))
-                    ]);
-                }
                 // Close assets modal if it's no longer the user's turn
                 const updatedMyId = myIdRef.current;
                 const updatedIsUserTurn = room.players[room.turnIndex]?.id === updatedMyId;
@@ -483,7 +474,6 @@ const App: React.FC = () => {
         setRoomState('playing');
         setFeedEntries([]);
         setChatInput('');
-        lastLogCountRef.current = 0;
         feedIdRef.current = 0;
     }, []);
 
@@ -756,21 +746,9 @@ const App: React.FC = () => {
                     minHeight: 0,
                 }}>
                     {feedEntries.length === 0 && (
-                        <div style={{ fontSize: '11px', fontStyle: 'italic', opacity: 0.4, padding: '2px 4px' }}>Лог игры и чат появятся здесь…</div>
+                        <div style={{ fontSize: '11px', fontStyle: 'italic', opacity: 0.4, padding: '2px 4px' }}>Чат появится здесь…</div>
                     )}
-                    {feedEntries.map(entry => entry.kind === 'log' ? (
-                        <div key={entry.id} style={{
-                            fontSize: '11px',
-                            fontStyle: 'italic',
-                            opacity: 0.65,
-                            padding: '1px 4px',
-                            color: 'var(--text-muted)',
-                            lineHeight: '1.4',
-                            wordBreak: 'break-word',
-                        }}>
-                            {entry.text}
-                        </div>
-                    ) : (
+                    {feedEntries.map(entry => (
                         <div key={entry.id} style={{
                             padding: '4px 8px',
                             borderRadius: '6px',
