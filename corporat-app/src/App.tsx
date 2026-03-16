@@ -105,10 +105,10 @@ const App: React.FC = () => {
     const feedEndRef = React.useRef<HTMLDivElement>(null);
     const feedIdRef = React.useRef(0);
 
+    // Height locked once after mount (post tg.expand) so viewport resizes don't affect layout
+    const [lockedHeight, setLockedHeight] = useState(0);
+    const lockedHeightRef = React.useRef(0);
     const [keyboardHeight, setKeyboardHeight] = useState(0);
-    const initialVVHeight = React.useRef(
-        typeof window !== 'undefined' ? (window.visualViewport?.height ?? window.innerHeight) : 0
-    );
 
     const tg = window.Telegram?.WebApp;
 
@@ -119,11 +119,24 @@ const App: React.FC = () => {
         }
     }, [tg]);
 
+    // Snapshot viewport height after expand() settles, then keep it locked
+    useEffect(() => {
+        const lock = () => {
+            const h = window.visualViewport?.height ?? window.innerHeight;
+            lockedHeightRef.current = h;
+            setLockedHeight(h);
+        };
+        const t = setTimeout(lock, 500);
+        return () => clearTimeout(t);
+    }, []);
+
+    // Detect keyboard via VisualViewport
     useEffect(() => {
         const vv = window.visualViewport;
         if (!vv) return;
         const handleResize = () => {
-            setKeyboardHeight(Math.max(0, initialVVHeight.current - vv.height));
+            if (!lockedHeightRef.current) return;
+            setKeyboardHeight(Math.max(0, lockedHeightRef.current - vv.height));
         };
         vv.addEventListener('resize', handleResize);
         return () => vv.removeEventListener('resize', handleResize);
@@ -556,7 +569,7 @@ const App: React.FC = () => {
     const isUserTurn = players[turnIndex]?.id === myId;
 
     return (
-        <div className="app-container" style={keyboardHeight > 0 ? { height: `${initialVVHeight.current}px` } : undefined}>
+        <div className="app-container" style={lockedHeight > 0 ? { height: `${lockedHeight}px` } : undefined}>
             {connectionBanner}
             <header className="glass-panel" style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', minHeight: '34px', alignItems: 'center' }}>
@@ -739,6 +752,9 @@ const App: React.FC = () => {
                     })}
                 </div>{/* /board */}
             </main>
+
+            {/* Spacer: keeps board size unchanged while chat is floating above keyboard */}
+            {keyboardHeight > 0 && <div style={{ height: '170px', flexShrink: 0 }} />}
 
             {/* Chat + Log feed panel */}
             <div className="comic-panel" style={{
