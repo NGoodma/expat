@@ -106,9 +106,6 @@ const App: React.FC = () => {
     const feedIdRef = React.useRef(0);
 
     const [keyboardHeight, setKeyboardHeight] = useState(0);
-    // Ref to the board-container DOM node — we snapshot its height when keyboard opens
-    const boardContainerRef = React.useRef<HTMLElement>(null);
-    const lockedBoardHeightRef = React.useRef(0);
 
     const tg = window.Telegram?.WebApp;
 
@@ -124,19 +121,9 @@ const App: React.FC = () => {
         const vv = window.visualViewport;
         if (!vv) return;
         let baseHeight = vv.height;
-        // Re-snapshot base height 600ms after mount (after tg.expand settles)
         const t = setTimeout(() => { baseHeight = vv.height; }, 600);
         const handleResize = () => {
-            const kh = Math.max(0, baseHeight - vv.height);
-            if (kh > 50) {
-                // Keyboard opened — snapshot board-container height if not yet locked
-                if (!lockedBoardHeightRef.current && boardContainerRef.current) {
-                    lockedBoardHeightRef.current = boardContainerRef.current.getBoundingClientRect().height;
-                }
-            } else {
-                lockedBoardHeightRef.current = 0;
-            }
-            setKeyboardHeight(kh);
+            setKeyboardHeight(Math.max(0, baseHeight - vv.height));
         };
         vv.addEventListener('resize', handleResize);
         return () => { clearTimeout(t); vv.removeEventListener('resize', handleResize); };
@@ -596,8 +583,6 @@ const App: React.FC = () => {
 
             <main
                 className="board-container"
-                ref={boardContainerRef}
-                style={lockedBoardHeightRef.current > 0 ? { height: `${lockedBoardHeightRef.current}px`, flexShrink: 0 } : undefined}
             >
                 <div className="board glass-panel">
                     <div className="board-center">
@@ -757,26 +742,26 @@ const App: React.FC = () => {
                 </div>{/* /board */}
             </main>
 
-            {/* Spacer: keeps board size unchanged while chat is floating above keyboard */}
-            {keyboardHeight > 0 && <div style={{ height: '170px', flexShrink: 0 }} />}
-
             {/* Chat + Log feed panel */}
-            <div className="comic-panel" style={{
+            <div className="comic-panel" style={keyboardHeight > 0 ? {
+                position: 'fixed' as const,
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: keyboardHeight,
+                zIndex: 500,
+                display: 'flex',
+                flexDirection: 'column',
+                padding: '6px 8px',
+                gap: '4px',
+                borderRadius: 0,
+            } : {
                 display: 'flex',
                 flexDirection: 'column',
                 flexShrink: 0,
                 height: '170px',
                 padding: '6px 8px 6px',
                 gap: '4px',
-                ...(keyboardHeight > 0 ? {
-                    position: 'fixed' as const,
-                    left: 0,
-                    right: 0,
-                    bottom: keyboardHeight,
-                    zIndex: 200,
-                    maxWidth: '1000px',
-                    margin: '0 auto',
-                } : {}),
             }}>
                 {/* Scrollable feed */}
                 <div style={{
