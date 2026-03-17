@@ -106,6 +106,7 @@ const App: React.FC = () => {
     const feedIdRef = React.useRef(0);
 
     const [keyboardHeight, setKeyboardHeight] = useState(0);
+    const [vvHeight, setVvHeight] = useState(0);
 
     const tg = window.Telegram?.WebApp;
 
@@ -123,7 +124,9 @@ const App: React.FC = () => {
         let baseHeight = vv.height;
         const t = setTimeout(() => { baseHeight = vv.height; }, 600);
         const handleResize = () => {
-            setKeyboardHeight(Math.max(0, baseHeight - vv.height));
+            const kh = Math.max(0, baseHeight - vv.height);
+            setKeyboardHeight(kh);
+            setVvHeight(kh > 50 ? vv.height : 0);
         };
         vv.addEventListener('resize', handleResize);
         return () => { clearTimeout(t); vv.removeEventListener('resize', handleResize); };
@@ -748,7 +751,7 @@ const App: React.FC = () => {
                 top: 0,
                 left: 0,
                 right: 0,
-                bottom: keyboardHeight,
+                height: `${vvHeight}px`,
                 zIndex: 500,
                 display: 'flex',
                 flexDirection: 'column',
