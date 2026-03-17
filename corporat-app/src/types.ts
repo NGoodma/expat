@@ -103,7 +103,7 @@ export const BOARD_CONFIG: BoardEntry[] = [
     },
     { name: '❓', type: 'chance', color: '', price: null },
     {
-        name: 'Emigration to Action', type: 'property', color: '#87CEEB', price: 100000,
+        name: 'Emigration for Action', type: 'property', color: '#87CEEB', price: 100000,
         buildCost: 50000, rentBase: 6000, rentMonopoly: 12000,
         rent1h: 30000, rent2h: 90000, rent3h: 270000, rent4h: 400000, rentHotel: 550000
     },
@@ -239,7 +239,7 @@ export const BOARD_CONFIG: BoardEntry[] = [
     },
     { name: 'Налог', type: 'tax', color: '', price: 100000 },
     {
-        name: 'Горизонтальное кафе Фрик', type: 'property', color: '#0000CD', price: 400000,
+        name: 'Дружбодом', type: 'property', color: '#0000CD', price: 400000,
         buildCost: 200000, rentBase: 50000, rentMonopoly: 100000,
         rent1h: 200000, rent2h: 600000, rent3h: 1400000, rent4h: 1700000, rentHotel: 2000000
     },
