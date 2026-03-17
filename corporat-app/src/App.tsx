@@ -105,10 +105,10 @@ const App: React.FC = () => {
     const feedEndRef = React.useRef<HTMLDivElement>(null);
     const feedIdRef = React.useRef(0);
 
-    // Height locked once after mount (post tg.expand) so viewport resizes don't affect layout
-    const [lockedHeight, setLockedHeight] = useState(0);
-    const lockedHeightRef = React.useRef(0);
     const [keyboardHeight, setKeyboardHeight] = useState(0);
+    // Ref to the board-container DOM node — we snapshot its height when keyboard opens
+    const boardContainerRef = React.useRef<HTMLElement>(null);
+    const lockedBoardHeightRef = React.useRef(0);
 
     const tg = window.Telegram?.WebApp;
 
@@ -119,27 +119,27 @@ const App: React.FC = () => {
         }
     }, [tg]);
 
-    // Snapshot viewport height after expand() settles, then keep it locked
-    useEffect(() => {
-        const lock = () => {
-            const h = window.visualViewport?.height ?? window.innerHeight;
-            lockedHeightRef.current = h;
-            setLockedHeight(h);
-        };
-        const t = setTimeout(lock, 500);
-        return () => clearTimeout(t);
-    }, []);
-
     // Detect keyboard via VisualViewport
     useEffect(() => {
         const vv = window.visualViewport;
         if (!vv) return;
+        let baseHeight = vv.height;
+        // Re-snapshot base height 600ms after mount (after tg.expand settles)
+        const t = setTimeout(() => { baseHeight = vv.height; }, 600);
         const handleResize = () => {
-            if (!lockedHeightRef.current) return;
-            setKeyboardHeight(Math.max(0, lockedHeightRef.current - vv.height));
+            const kh = Math.max(0, baseHeight - vv.height);
+            if (kh > 50) {
+                // Keyboard opened — snapshot board-container height if not yet locked
+                if (!lockedBoardHeightRef.current && boardContainerRef.current) {
+                    lockedBoardHeightRef.current = boardContainerRef.current.getBoundingClientRect().height;
+                }
+            } else {
+                lockedBoardHeightRef.current = 0;
+            }
+            setKeyboardHeight(kh);
         };
         vv.addEventListener('resize', handleResize);
-        return () => vv.removeEventListener('resize', handleResize);
+        return () => { clearTimeout(t); vv.removeEventListener('resize', handleResize); };
     }, []);
 
     // Animate visual players to catch up to real Server given players
@@ -569,7 +569,7 @@ const App: React.FC = () => {
     const isUserTurn = players[turnIndex]?.id === myId;
 
     return (
-        <div className="app-container" style={lockedHeight > 0 ? { height: `${lockedHeight}px` } : undefined}>
+        <div className="app-container">
             {connectionBanner}
             <header className="glass-panel" style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', minHeight: '34px', alignItems: 'center' }}>
@@ -594,7 +594,11 @@ const App: React.FC = () => {
                 </div>
             </header>
 
-            <main className="board-container">
+            <main
+                className="board-container"
+                ref={boardContainerRef}
+                style={lockedBoardHeightRef.current > 0 ? { height: `${lockedBoardHeightRef.current}px`, flexShrink: 0 } : undefined}
+            >
                 <div className="board glass-panel">
                     <div className="board-center">
                         <h1 className="logo-title">ЭКСПАТ</h1>
