@@ -107,6 +107,7 @@ const App: React.FC = () => {
 
     const [keyboardHeight, setKeyboardHeight] = useState(0);
     const [vvHeight, setVvHeight] = useState(0);
+    const [isChatFocused, setIsChatFocused] = useState(false);
 
     const tg = window.Telegram?.WebApp;
 
@@ -746,7 +747,7 @@ const App: React.FC = () => {
             </main>
 
             {/* Chat + Log feed panel */}
-            <div className="comic-panel" style={keyboardHeight > 0 ? {
+            <div className="comic-panel" style={keyboardHeight > 0 && isChatFocused ? {
                 position: 'fixed' as const,
                 top: 0,
                 left: 0,
@@ -825,6 +826,8 @@ const App: React.FC = () => {
                         value={chatInput}
                         onChange={e => setChatInput(e.target.value.slice(0, 200))}
                         onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); sendChatMessage(); } }}
+                        onFocus={() => setIsChatFocused(true)}
+                        onBlur={() => setIsChatFocused(false)}
                         placeholder="Сообщение..."
                         style={{
                             flex: 1,
