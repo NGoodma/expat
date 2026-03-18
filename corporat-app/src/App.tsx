@@ -322,6 +322,7 @@ const App: React.FC = () => {
             case 'Аудитория': return 'Ауди\nтория';
             case 'Magticom': return 'Magti\ncom';
             case 'Biblioteka': return 'Biblio\nteka';
+            case 'Дружбодом': return 'Дружбо\nдом';
             //case 'Горизонтальное кафе Фрик': return 'Горизонт.\nкафе Фрик';
             default: return name;
         }
