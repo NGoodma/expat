@@ -876,7 +876,7 @@ const App: React.FC = () => {
                                     <div className="property-banner-inner">АКТИВ</div>
                                 </div>
                             )}
-                            <div className="modal-inner">
+                            <div className="modal-inner" style={activeEvent.type === 'buy' ? { gap: '8px' } : undefined}>
                                 <div className="modal-title">{activeEvent.cell?.name || (activeEvent.type === 'trade' && 'Сделка')}</div>
 
                                 {activeEvent.type === 'trade' && (() => {
@@ -1086,10 +1086,10 @@ const App: React.FC = () => {
                                         {(players.find(p => p.id === myId)?.balance ?? 0) < (activeEvent.cell.price ?? 0) && (
                                             <button
                                                 className="action-btn"
-                                                style={{ width: '100%', marginBottom: '12px', padding: '8px', fontSize: '13px', background: '#f5f5f5', color: '#333', border: '2px solid #ccc' }}
+                                                style={{ width: '100%', padding: '6px 8px', fontSize: '13px', background: '#f5f5f5', color: '#333', border: '2px solid #ccc' }}
                                                 onClick={() => setShowAssetsModal(true)}
                                             >
-                                                💼 Заложить активы для покупки
+                                                💼 Заложить активы
                                             </button>
                                         )}
                                         <div className="btn-row">
