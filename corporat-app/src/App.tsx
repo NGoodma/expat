@@ -17,7 +17,7 @@ import socket from './socket';
 
 // Feed entry: player chat message
 type FeedEntry =
-    { kind: 'chat'; text: string; id: number; playerId: string; playerName: string; playerColor: string };
+    { kind: 'chat'; text: string; id: number; playerId: string; playerColor: string };
 
 const App: React.FC = () => {
     // Multiplayer State
@@ -463,7 +463,6 @@ const App: React.FC = () => {
                 text: data.text,
                 id: feedIdRef.current++,
                 playerId: data.playerId,
-                playerName: data.playerName,
                 playerColor: data.playerColor,
             }]);
         };
@@ -790,29 +789,6 @@ const App: React.FC = () => {
                             wordBreak: 'break-word',
                             flexShrink: 0,
                         }}>
-                            <div style={{ marginBottom: '2px' }}>
-                                {(() => {
-                                    const hex = entry.playerColor.replace('#', '');
-                                    const r = parseInt(hex.substr(0, 2), 16) / 255;
-                                    const g = parseInt(hex.substr(2, 2), 16) / 255;
-                                    const b = parseInt(hex.substr(4, 2), 16) / 255;
-                                    const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-                                    return (
-                                        <span style={{
-                                            display: 'inline-block',
-                                            background: lum > 0.5 ? '#1a1a1a' : entry.playerColor,
-                                            color: lum > 0.5 ? entry.playerColor : '#fff',
-                                            borderRadius: '4px',
-                                            padding: '1px 5px',
-                                            fontSize: '10px',
-                                            fontWeight: 'bold',
-                                            letterSpacing: '0.3px',
-                                        }}>
-                                            {entry.playerName}
-                                        </span>
-                                    );
-                                })()}
-                            </div>
                             <div style={{ fontSize: '13px', color: 'var(--text-main)', lineHeight: '1.4' }}>
                                 {entry.text}
                             </div>
@@ -877,7 +853,7 @@ const App: React.FC = () => {
                                 </div>
                             )}
                             <div className="modal-inner" style={activeEvent.type === 'buy' ? { gap: '8px' } : undefined}>
-                                <div className="modal-title">{activeEvent.cell?.name || (activeEvent.type === 'trade' && 'Сделка')}</div>
+                                <div className="modal-title">{activeEvent.type === 'auction' ? 'Аукцион за актив' : (activeEvent.cell?.name || (activeEvent.type === 'trade' && 'Сделка'))}</div>
 
                                 {activeEvent.type === 'trade' && (() => {
                                     const otherPlayers = players.filter(p => p.id !== myId && p.position >= 0);
@@ -1101,8 +1077,6 @@ const App: React.FC = () => {
 
                                 {activeEvent.type === 'auction' && activeEvent.cell && auctionState && (
                                     <>
-                                        <div className="modal-title" style={{ color: 'var(--primary-color)' }}>АУКЦИОН</div>
-                                        <p style={{ fontWeight: 'bold' }}>{activeEvent.cell.name}</p>
                                         <div className="modal-price" style={{ background: 'var(--primary-color)' }}>{auctionState.highestBid.toLocaleString()} ₾</div>
                                         <p style={{ color: 'var(--text-muted)' }}>
                                             Лидер: {auctionState.highestBidderId ? players.find(p => p.id === auctionState.highestBidderId)?.name : 'Нет'}
