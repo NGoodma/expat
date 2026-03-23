@@ -102,6 +102,12 @@ const Lobby: React.FC<LobbyProps> = ({ onGameStart }) => {
         const savedCode = getSavedSessionCode();
 
         const handleRoomUpdate = (updatedRoom: GameRoom) => {
+            if (updatedRoom.state === 'finished') {
+                // Room is dissolving — drop session and return to home screen
+                clearSession();
+                setView('home');
+                return;
+            }
             setRoom(updatedRoom);
             const myPlayer = updatedRoom.players.find(p => p.playerId === playerId);
             if (myPlayer) {

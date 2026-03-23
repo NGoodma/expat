@@ -347,6 +347,11 @@ const App: React.FC = () => {
                 // The winner is the only player still on the board (position >= 0)
                 const w = room.players.find(p => p.position >= 0) || null;
                 setWinner(w);
+                // Clear session so Lobby won't try to rejoin a dissolved room
+                localStorage.removeItem('corporat_roomCode');
+                localStorage.removeItem('corporat_roomTimestamp');
+                // Close any open modals (e.g. bankrupt)
+                setActiveEvent(null);
                 // Reset animation state so UI doesn't stay locked
                 if (animatingTimeoutRef.current) clearTimeout(animatingTimeoutRef.current);
                 orchestratorRef.current.isAnimating = false;

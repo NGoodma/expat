@@ -340,7 +340,7 @@ io.on('connection', (socket: Socket) => {
             rollDice(room, socket.id);
             if ((room.state as string) === 'finished' && !(room as any)._deletionScheduled) {
                 (room as any)._deletionScheduled = true;
-                setTimeout(() => rooms.delete(data.code), 5 * 60 * 1000);
+                setTimeout(() => rooms.delete(data.code), 30 * 1000);
             }
             console.log(`[Socket] Broadcasting room_update for ${data.code}`);
             io.to(data.code).emit('room_update', room);
@@ -367,7 +367,7 @@ io.on('connection', (socket: Socket) => {
             resolveEvent(room, socket.id, data);
             if ((room.state as string) === 'finished' && !(room as any)._deletionScheduled) {
                 (room as any)._deletionScheduled = true;
-                setTimeout(() => rooms.delete(data.code), 5 * 60 * 1000);
+                setTimeout(() => rooms.delete(data.code), 30 * 1000);
             }
             console.log(`[Socket] Broadcasting room_update for ${data.code} after resolve`);
             io.to(data.code).emit('room_update', room);
