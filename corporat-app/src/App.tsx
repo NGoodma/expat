@@ -849,11 +849,11 @@ const App: React.FC = () => {
                         <div className="modal-content" style={activeEvent.type === 'trade' ? { maxHeight: '90vh', overflowY: 'auto' } : undefined}>
                             {activeEvent.cell?.groupColor && (
                                 <div className="property-banner" style={{ background: activeEvent.cell.groupColor }}>
-                                    <div className="property-banner-inner">АКТИВ</div>
+                                    <div className="property-banner-inner">{activeEvent.type === 'auction' ? 'АУКЦИОН ЗА АКТИВ' : 'АКТИВ'}</div>
                                 </div>
                             )}
                             <div className="modal-inner" style={activeEvent.type === 'buy' ? { gap: '8px' } : undefined}>
-                                <div className="modal-title">{activeEvent.type === 'auction' ? 'Аукцион за актив' : (activeEvent.cell?.name || (activeEvent.type === 'trade' && 'Сделка'))}</div>
+                                <div className="modal-title">{activeEvent.cell?.name || (activeEvent.type === 'trade' && 'Сделка')}</div>
 
                                 {activeEvent.type === 'trade' && (() => {
                                     const otherPlayers = players.filter(p => p.id !== myId && p.position >= 0);
