@@ -284,7 +284,7 @@ const App: React.FC = () => {
         }
         if (cell.type === 'utility') {
             const bothOwned = cells.filter(c => c.type === 'utility').every(c => c.ownerId === cell.ownerId && !c.isMortgaged);
-            return bothOwned ? '🎲x10k' : '🎲x4k';
+            return bothOwned ? 'x10k' : 'x4k';
         }
         if (!cell.rentBase) return 0;
         if (cell.level === 0) {
